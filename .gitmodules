@@ -1,0 +1,3 @@
+[submodule "JLibrary"]
+	path = JLibrary
+	url = /home/windrill/JS/graphing/src/JLibrary

@@ -1,0 +1,19 @@
+
+Dependencies:
+(don't need nodejs, just use npm)
+npm install @types/three
+
+Run Software step by step:
+1. vite build
+- this will explicitly generate your files for you. sticks them in dist, etc.
+
+Vite & Three.js
+1. Alright, finally got this working for vite + threejs.
+-failed to resolve import 'three'. does the file exist?
+2. i thought vite could not load threejs at all from typescript/javascript.
+  - actually, it was because i didn't include three's library. i guess for typescripti 'll have to use common.js
+
+
+For Testing:
+= trying to use node to run typescript
+npm install -g ts-node typescript '@types/node'

@@ -1,0 +1,25 @@
+<html lang="html">
+    <title>Flock</title>
+    <body>
+        <canvas width="500" height="500"></canvas>
+<!--        https://stackoverflow.com/questions/63483096/how-to-call-typescript-function-from-index-html-->
+<!--        // dont use this bc it requires glboa  onclick="setup();"-->
+        <button id="start" >Start</button>
+
+<!--        put an on change setting-->
+      <p>Alignment</p>
+        <label for="alignment"></label><input id="alignment" type="range" min="0" max="5" value="0" step="0.1">
+      <p>Cohesion</p>
+        <label for="cohesion"></label><input id="cohesion" type="range" min="0" max="5" value="0" step="0.1">
+      <p>Separation</p>
+        <label for="separation"></label><input id="separation" type="range" min="0" max="5" value="1" step="0.1">
+        <p>Maxforce</p><label for="maxforce"></label><input id="maxforce" type="range" min="0" max="10" value="1" step="0.1">
+        <p>Maxspeed</p><label for="maxspeed"></label><input id="maxspeed" type="range" min="0" max="10" value="1" step="0.1">
+<!--        <script src="three.min.js"></script>-->
+<!--        Uncaught SyntaxError: Cannot use import statement outside a module (at render.ts:1:1)-->
+        <script type="module" src="./draw_tool.ts"></script>
+        <script type="module" src="./QuadTree.ts"></script>
+        <script type="module" src="./boid.ts"></script>
+        <script type="module" src="./render.ts"></script>
+    </body>
+</html>
