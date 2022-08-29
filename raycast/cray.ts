@@ -3,6 +3,10 @@ import * as THREE from 'three'
 import {C_DOT, Polar2Cartesian} from "../JLibrary/functions/algebra";
 import {Boundary} from "./boundary";
 
+interface Drawable {
+  draw(renderContext : R_Canvas) : void;
+}
+
 class CRay {
   private pos: THREE.Vector2;
   private direction: THREE.Vector2;
@@ -10,7 +14,7 @@ class CRay {
   public drawDebug: boolean;
 
   constructor(pos : THREE.Vector2 = new THREE.Vector2(0, 0), theta : number = 1) {
-    this.pos = new THREE.Vector2(0,0);
+    this.pos = pos;
     let lolRandomP = Polar2Cartesian(1, theta);
     this.direction = new THREE.Vector2(lolRandomP.x, lolRandomP.y);
     this.drawDebug = true;
@@ -72,5 +76,6 @@ class CRay {
 }
 
 export {
-  CRay
+  CRay,
+  Drawable
 }

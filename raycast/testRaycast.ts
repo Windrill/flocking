@@ -1,16 +1,19 @@
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {Boundary} from "./boundary";
 import * as THREE from 'three'
-import {CRay} from "./cray";
+import {CRay, Drawable} from "./cray";
 import {Listener} from "../JLibrary/canvas/canvas_listener";
 import {ForEachArrayItem} from "../JLibrary/functions/functional";
 import {Particle} from "./particle";
+import {QuackingV2} from "../JLibrary/functions/structures";
 
 let canvas = document.getElementsByTagName("canvas")[0];
 let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 
 let renderContext: R_Canvas;
-let listener : Listener;
+let listener: Listener;
+
+
 
 function cleanCanvas() {
   if (ctx) {
@@ -47,7 +50,7 @@ function oneBoundary() {
 
 function cleanDraw(...args: any[]) {
   cleanCanvas();
-  ForEachArrayItem((a)=> {
+  ForEachArrayItem((a : Drawable) => {
     a.draw(renderContext);
   }, args);
 }
@@ -58,13 +61,6 @@ if (ctx) {
 
   cleanCanvas();
 
-  // let b = new Boundary();
-  // b.set(
-  //   new THREE.Vector2(300, 100),
-  //   new THREE.Vector2(300, 300)
-  // );
-  // b.draw(renderContext);
-
   let boundaries: Boundary[] = [];
   {
     let b = new Boundary();
@@ -74,7 +70,7 @@ if (ctx) {
     );
     boundaries.push(b);
   }
-  for (let i=0;i<5;i++) {
+  for (let i = 0; i < 5; i++) {
     let randomV = new THREE.Vector2(Math.random() * 500, Math.random() * 500);
     let randomV2 = new THREE.Vector2(Math.random() * 500, Math.random() * 500);
     let b = new Boundary();
@@ -89,20 +85,18 @@ if (ctx) {
 
   // let castRes = particle.cast(b);
   let castRes = particle.castBoundaries(...boundaries);
-  ForEachArrayItem((cast) => {
+  ForEachArrayItem((cast: QuackingV2) => {
     renderContext.cline(cast.x, cast.y, particle.pos.x, particle.pos.y);
   }, castRes);
 
   listener.setListenFunction("mousemove", (e) => {
     cleanCanvas();
-    // particle.draw(renderContext);
     cleanDraw(...boundaries, particle);
-    // b.draw(renderContext);
 
     particle.setPos(new THREE.Vector2(e.clientX, e.clientY));
     let castRes = particle.castBoundaries(...boundaries);
     // let castRes = particle.cast(b);
-    ForEachArrayItem((cast) => {
+    ForEachArrayItem((cast: QuackingV2) => {
       renderContext.cline(cast.x, cast.y, particle.pos.x, particle.pos.y);
     }, castRes);
 

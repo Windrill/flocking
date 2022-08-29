@@ -4,7 +4,6 @@ import {d} from "./draw_tool";
 import {D_Rect, MidPointToD_Rect} from "./JLibrary/functions/structures";
 import {ForEachArrayItem} from "./JLibrary/functions/functional";
 import {R_Canvas} from "./JLibrary/canvas/canvas";
-import {EventDispatcher, EventLambda, ListenerEvent} from "./JLibrary/canvas/event_dispatcher";
 // import {Listener} from "./JLibrary/canvas/canvas_listener";
 // let lastLoop = new Date();
 
