@@ -1,7 +1,7 @@
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {Boundary} from "./boundary";
 import * as THREE from 'three'
-import {CRay, Drawable} from "./cray";
+import {Drawable} from "./cray";
 import {Listener} from "../JLibrary/canvas/canvas_listener";
 import {ForEachArrayItem} from "../JLibrary/functions/functional";
 import {Particle} from "./particle";
@@ -14,43 +14,13 @@ let renderContext: R_Canvas;
 let listener: Listener;
 
 
-
-function cleanCanvas() {
-  if (ctx) {
-    ctx.fillStyle = "#167a7a";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-}
-
-function oneBoundary() {
-  let b = new Boundary();
-  b.set(
-    new THREE.Vector2(300, 100),
-    new THREE.Vector2(300, 300)
-  );
-  b.draw(renderContext);
-
-  let ray = new CRay();
-  ray.setPos(new THREE.Vector2(100, 200));
-  ray.setDirection(new THREE.Vector2(1, 0));
-  ray.draw(renderContext);
-
-  cleanDraw(b, ray);
-
-  // Is this listen fucntion unique or can be heaped upon?
-  listener.setListenFunction("mousemove", (e) => {
-    // console.log(e);
-    ray.pointTowards(new THREE.Vector2(e.clientX, e.clientY));
-    let castCollision = (ray.cast(b));
-    if (castCollision) {
-      renderContext.cpoint(castCollision);
-    }
-  });
+function cleanCanvas(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = "#167a7a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function cleanDraw(...args: any[]) {
-  cleanCanvas();
-  ForEachArrayItem((a : Drawable) => {
+  ForEachArrayItem((a: Drawable) => {
     a.draw(renderContext);
   }, args);
 }
@@ -59,8 +29,9 @@ if (ctx) {
   renderContext = new R_Canvas(ctx);
   listener = new Listener(ctx, canvas);
 
-  cleanCanvas();
+  cleanCanvas(ctx);
 
+  // Create walls on the left (How canvas represents all these data I won't know for now!)
   let boundaries: Boundary[] = [];
   {
     let b = new Boundary();
@@ -77,31 +48,31 @@ if (ctx) {
     b.set(randomV, randomV2);
     boundaries.push(b);
   }
-  // console.log(boundaries); // <-- valid
 
+  // Draw the character who is looking around
   let particle = new Particle();
   particle.setPos(new THREE.Vector2(100, 200));
   particle.draw(renderContext);
 
-  // let castRes = particle.cast(b);
+  // Draw casted light rays
   let castRes = particle.castBoundaries(...boundaries);
   ForEachArrayItem((cast: QuackingV2) => {
     renderContext.cline(cast.x, cast.y, particle.pos.x, particle.pos.y);
   }, castRes);
 
+  // Repeated rendering
   listener.setListenFunction("mousemove", (e) => {
-    cleanCanvas();
+    if (ctx) {
+      cleanCanvas(ctx);
+    }
     cleanDraw(...boundaries, particle);
 
     particle.setPos(new THREE.Vector2(e.clientX, e.clientY));
     let castRes = particle.castBoundaries(...boundaries);
-    // let castRes = particle.cast(b);
     ForEachArrayItem((cast: QuackingV2) => {
       renderContext.cline(cast.x, cast.y, particle.pos.x, particle.pos.y);
     }, castRes);
-
   });
-  // console.log(ray.cast(b));
-  console.log("Rendering");
 
+  console.log("Rendering");
 }

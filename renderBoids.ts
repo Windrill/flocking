@@ -20,7 +20,7 @@ let parseData = {
 };
 let mouseX: number;
 let mouseY: number;
-let ctx: CanvasRenderingContext2D = canvas.getContext('2d');
+let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 let renderContext: R_Canvas;
 // console.log(parseData.alignHtml);
 // console.log(parseData.alignHtml.value);
