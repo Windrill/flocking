@@ -4,6 +4,7 @@ import {d} from "./draw_tool";
 import {D_Rect, MidPointToD_Rect} from "./JLibrary/functions/structures";
 import {ForEachArrayItem} from "./JLibrary/functions/functional";
 import {R_Canvas} from "./JLibrary/canvas/canvas";
+import {EventDispatcher, EventLambda, ListenerEvent} from "./JLibrary/canvas/event_dispatcher";
 // import {Listener} from "./JLibrary/canvas/canvas_listener";
 // let lastLoop = new Date();
 
@@ -21,23 +22,24 @@ let parseData = {
 let mouseX: number;
 let mouseY: number;
 let ctx: CanvasRenderingContext2D = canvas.getContext('2d');
+let renderContext: R_Canvas;
 // console.log(parseData.alignHtml);
 // console.log(parseData.alignHtml.value);
-// static class
+
 class MainClass {
   static initialization: boolean = true;
   static intervalPlaying: any;
 
   static flock: Boid[] = [];
   static pause = true;
-  static quadTree = new QuadTree((new D_Rect(0,0,canvas.width,canvas.height)));
+  static quadTree = new QuadTree((new D_Rect(0, 0, canvas.width, canvas.height)));
   static dd = new d(ctx);
 
   static startClicked() {
     if (MainClass.initialization) {
       for (let i = 0; i < 18; i++) {
         //let nb = new Point(Math.random()*width, Math.random()*height);
-        let nb = new Boid(i, MainClass.quadTree);
+        let nb = new Boid(i, MainClass.quadTree, [canvas.width, canvas.height]);
         // nb.mark = true;
         // nb.setSpeedRestraints(parseData);
 
@@ -64,7 +66,7 @@ class MainClass {
     // lastLoop = thisLoop;
     // console.log("Rendering at: ", fps);
     MainClass.dd.drawBoard(canvas.width, canvas.height);
-    let crange = new D_Rect(mouseX-40, mouseY-40, 80, 80);
+    let crange = new D_Rect(mouseX - 40, mouseY - 40, 80, 80);
     crange.show(ctx);
 
     let queries = MainClass.quadTree.query(crange, []);
@@ -107,6 +109,9 @@ if (ctx) {
 
   document.querySelector("#start").addEventListener("mousedown", MainClass.startClicked);
 
+  renderContext = new R_Canvas(ctx);
+  // renderContext.cline(100,);
+
   // document.getElementsByTagName("body")[0].innerHTML += "<br/>red, green, yellow";
 
   // let tree = new QuadTree(new D_Rect(0,0,800,800));
@@ -118,7 +123,6 @@ if (ctx) {
   // );
   // console.log(queryResults);
 }
-
 /*
 
 mouse cast:

@@ -1,8 +1,8 @@
 import {Point, QuadTree} from "./QuadTree";
 import * as THREE from 'three';
+import {Vector2} from 'three';
 import {WRAP} from "./JLibrary/functions/algebra";
-import {Accumulator, CompositeFunc, ForEachArrayIndex, ForEachArrayItem} from "./JLibrary/functions/functional";
-import {Vector2} from "three";
+import {Accumulator, ForEachArrayItem} from "./JLibrary/functions/functional";
 import {D_Rect, NormalizeX} from "./JLibrary/functions/structures";
 import {R_Canvas} from "./JLibrary/canvas/canvas";
 import {CLAMP_VEC2} from "./JLibrary/r_three";
@@ -33,6 +33,12 @@ class Boid extends Point {
   private alignValue: number;
   private forceResult: Vector2[];
 
+  // If is leader, ????
+  // if you follow then maybe primarily follow leader, also give a limit to steering <--naturally by friction so just add friction then
+  private leader: Boid | undefined;
+  private isLeader: boolean = false;
+  // goal direction???
+  private forward: Vector2[];
 
   private qt: QuadTree;
   // Context like a delegate, but actually a reference
@@ -43,7 +49,7 @@ class Boid extends Point {
   }
 
   // can this boid treat 1 and array the same...
-  constructor(id: number, qt: QuadTree, randomRange: number[] = [500, 500]) {
+  constructor(id: number, qt: QuadTree, randomRange: number[]) {
     super(id, Math.random() * randomRange[0], Math.random() * randomRange[1]);
     this.maxForce = 3;
     this.maxSpeed = 5;
@@ -61,7 +67,8 @@ class Boid extends Point {
 
     // automatically assume it's 0, 0, width then height
     this.randomRange = randomRange;
-    this.velocity = new THREE.Vector2(Math.random() * 15 - 7.5, Math.random() * 15 - 7.5);
+    this.velocity = new THREE.Vector2(Math.random() * 10 - 5, Math.random() * 10 - 5);
+    // this.velocity = new THREE.Vector2(Math.random() * 15 - 7.5, Math.random() * 15 - 7.5);
     this.acceleration = new THREE.Vector2(0, 0);
 
     // mark to draw/trace values of this boid
@@ -98,8 +105,8 @@ class Boid extends Point {
     this.forceResult = forceResult;
 
     // Draw force arrows based on magnitudes
-    let arrowMagnitudes : number[] = [];
-    ForEachArrayItem((item : THREE.Vector2)=> {
+    let arrowMagnitudes: number[] = [];
+    ForEachArrayItem((item: THREE.Vector2) => {
       arrowMagnitudes.push(item.length());
     }, forceResult);
     let normalizedMagnitudes = NormalizeX(...arrowMagnitudes);
@@ -117,6 +124,32 @@ class Boid extends Point {
     this.acceleration.add(alignment);
     this.acceleration.add(separation);
     this.acceleration.add(cohesion);
+
+  }
+
+  findLeader() {
+    // first: use existing leader
+    // if (this.leader) {
+    //   getAngle(this.leader.pos, this.pos)
+    // }
+    // second: find natural leader
+
+    // Also make sure you might be a leader
+    // frontal steer force?
+    let dist = 70;
+
+    let queryResult: Point[] = [];
+    let rect = new D_Rect(
+      this.pos.x - 70 / 2, this.pos.y - 70 / 2,
+      dist, dist);
+    this.qt.query((rect), queryResult);
+    let haveLeader = false;
+    if (queryResult.length > 0) {
+      // if anybody forward
+    }
+    if (haveLeader) {
+
+    }
   }
 
   threeForces(): Vector2[] {
@@ -134,7 +167,7 @@ class Boid extends Point {
         rect.show(Boid.ctx);
       }
       let queryResult: Point[] = [];
-        this.qt.query((rect), queryResult);
+      this.qt.query((rect), queryResult);
       forces.push(queryResult);
       steering.push((new THREE.Vector2(0, 0)));
     }
@@ -170,7 +203,7 @@ class Boid extends Point {
     // Calculate steer direction for separation
     if (forces[2].length > 1) {
       // the force should be facing away
-      let separationForce = Accumulator((acc: THREE.Vector2, item: Boid) => {
+      steering[2] = Accumulator((acc: THREE.Vector2, item: Boid) => {
         // if too close, force is bigger: 5 / 1
         let separationForce = this.pos.clone().sub(item.pos);
         // console.log(separationForce, separationForce.length());
@@ -184,7 +217,6 @@ class Boid extends Point {
           return acc;
         }
       }, forces[1], (new THREE.Vector2(0, 0)));
-      steering[2] = separationForce;
       // steering[2].divideScalar(forces[2].length);
       CLAMP_VEC2(steering[2], this.maxForce);
       // console.log("Total separation force", steering[2]);
@@ -217,9 +249,6 @@ class Boid extends Point {
     qt.insert(this);
   }
 
-  // quickFormatText(...args) {
-  //   return ``
-  // }
 
   draw() {
     Boid.ctx.fillStyle = "#33ccff";

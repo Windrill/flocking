@@ -16,6 +16,8 @@
     "noImplicitReturns": true,
     "skipLibCheck": true,
     "outDir": "dist",
+    "allowJs": true,
+
     "types": ["three"]
   },
   "include": ["./"]

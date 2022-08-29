@@ -1,6 +1,6 @@
-import {Point, QuadTree} from "./QuadTree";
-import {D_Rect} from "./JLibrary/functions/structures";
-import {ForEachArrayItem} from "./JLibrary/functions/functional";
+import {Point, QuadTree} from "../QuadTree";
+import {D_Rect} from "../JLibrary/functions/structures";
+import {ForEachArrayItem} from "../JLibrary/functions/functional";
 
 // can't even test without modifying vite, sad : (
 let testTree = new QuadTree(new D_Rect(0, 0, 800, 800));

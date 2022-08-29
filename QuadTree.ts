@@ -20,7 +20,6 @@ class Point {
   }
 
   // add all points: they will all be treated in the same way except pos...???!
-
   show(ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = "#33ccff";
     if (this.mark2) {
@@ -133,15 +132,15 @@ class QuadTree {
       if (!this.divided) {
         this.subdivide();
       }
-      if (this.tr.insert(point)) {
+      if (this.tr && this.tr.insert(point)) {
         return true;
-      } else if (this.tl.insert(point)) {
+      } else if (this.tl && this.tl.insert(point)) {
         return true;
-      } else if (this.br.insert(point)) {
+      } else if (this.br && this.br.insert(point)) {
         return true;
-      } else return (this.bl.insert(point));
-      //return (this.tr.insert(point)) || this.tl.insert(point) || this.br.insert(point) || this.bl.insert(point);
+      } else if (this.bl) return (this.bl.insert(point));
     }
+    return false;
   }
 
   show(ctx: CanvasRenderingContext2D) {
