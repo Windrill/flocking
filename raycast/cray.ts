@@ -9,7 +9,7 @@ interface Drawable {
 
 class CRay {
   private pos: THREE.Vector2;
-  private direction: THREE.Vector2;
+  public direction: THREE.Vector2;
   // This is a circle of lines around ray -- if disabled, the rays will be 'invisible'
   public drawDebug: boolean;
 
@@ -47,7 +47,6 @@ class CRay {
     const y1 = boundary.points[0].y;
     const x2 = boundary.points[1].x;
     const y2 = boundary.points[1].y;
-
 
     const x3 = this.pos.x;
     const y3 = this.pos.y;

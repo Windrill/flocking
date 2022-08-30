@@ -1,9 +1,10 @@
 import {CRay} from "./cray";
 import {DEG2RAD} from "../JLibrary/functions/algebra";
 import * as THREE from 'three'
-import {ForEachArrayItem} from "../JLibrary/functions/functional";
+import {ArrayAlloc, ForEachArrayIndex, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {Boundary} from "./boundary";
+import {diag} from "mathjs";
 
 class Particle {
   public pos: THREE.Vector2;
@@ -33,10 +34,13 @@ class Particle {
     }, this.rays);
   }
 
+  // Let castBoundaries return the point, and the distance
   castBoundaries(...args: Boundary[]) {
     let allRes: THREE.Vector2[] = [];
+    let allDistances: number[] = ArrayAlloc(this.rays.length);
     // Need to be for each ray look at the nearest boundary
-    ForEachArrayItem((ray: CRay) => {
+    ForEachArrayIndex((rayI: number) => {
+      let ray: CRay = this.rays[rayI];
       let closest = Infinity;
       let closestPoint = null;
       ForEachArrayItem((boundary: Boundary) => {
@@ -54,8 +58,9 @@ class Particle {
       if (closestPoint) {
         allRes.push(closestPoint);
       }
+      allDistances[rayI] = closest;
     }, this.rays);
-    return allRes;
+    return [allRes, allDistances];
   }
 
   // castBoundaries
