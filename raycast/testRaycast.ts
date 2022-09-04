@@ -9,6 +9,9 @@ import {QuackingV2} from "../JLibrary/functions/structures";
 import {ColorConversions} from "../JLibrary/tools/color_conversions";
 import {PlayerParticle} from "./PlayerParticle";
 import {CLAMP} from "../JLibrary/functions/algebra";
+// proper added after installing types
+import * as dat from 'dat.gui';
+const gui = new dat.GUI();
 
 let canvas = document.getElementsByTagName("canvas")[0];
 let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
@@ -37,7 +40,8 @@ function drawPlayerView(castDist) {
   ForEachArrayIndex((i: number) => {
     let dist: number = castDist[i];
     // 100/dist  is weak perspective projection that 'alleviates' fish0eye
-    let stripHeight = 100 / dist * CLAMP(renderSize.y - dist, 0, 500);
+    //100 / dist *
+    let stripHeight = CLAMP(renderSize.y - dist, 0, 500);
     let off = (renderSize.y - stripHeight) / 2;
     renderContext.crect(renderStart.x + i * stripWidth, renderStart.y + off,
       stripWidth, stripHeight, {
@@ -46,10 +50,6 @@ function drawPlayerView(castDist) {
         lineWidth: 1
       });
   }, castDist);
-}
-
-function ReDraw() {
-
 }
 
 if (ctx) {
@@ -104,6 +104,12 @@ if (ctx) {
     drawPlayerView(castDist);
   });
 
+  let folder1 = gui.addFolder('fov');
+  folder1.add(particle, "fov", 0, 360, 15)
+    .onChange(()=> {
+      particle.updateFOV();
+    });
+
   // Repeated rendering
   listener.setListenFunction("mousemove", (e) => {
 
@@ -114,7 +120,7 @@ if (ctx) {
   listener.setListenFunction("keydown", (e) => {
     switch (e.key) {
       case 'a':
-        /// this constatn just isnt the same as radian translation
+        /// this constant just isnt the same as radian translation
         particle.rotate(-.10);
         reDrawLambda(e);
         console.log("a");

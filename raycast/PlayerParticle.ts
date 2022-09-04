@@ -9,13 +9,25 @@ import {diag} from "mathjs";
 class PlayerParticle {
   public pos: THREE.Vector2;
   private rays: any[];
+  public fov: number; // 0 to 360?
   private rotation: number;
 
   constructor() {
     this.pos = new THREE.Vector2(0, 0);
     this.rays = [];
     this.rotation = 0;
-    for (let i = -22.5; i < 22.5; i += 1) {
+    this.fov = 45;
+    for (let i = this.rotation + -1*(this.fov/2); i < this.rotation + (this.fov/2); i += 1) {
+      let newRay = new CRay(this.pos, DEG2RAD * (i));
+      newRay.drawDebug = false;
+      this.rays.push(newRay);
+    }
+  }
+
+  updateFOV() {
+    // regeenrate rays from scratch without considering player orientation???
+    this.rays = [];
+    for (let i = this.rotation + -1*(this.fov/2); i < this.rotation + (this.fov/2); i += 1) {
       let newRay = new CRay(this.pos, DEG2RAD * (i));
       newRay.drawDebug = false;
       this.rays.push(newRay);
@@ -66,6 +78,11 @@ class PlayerParticle {
 
         if (castRes) {
           let dist = castRes.distanceTo(this.pos);
+          // to negate fish-eye more: get angle of the ray relative to direction of the camera
+          // optionally make fish-eye unproject a boolean!
+          const a = Cartesian2Polar(ray.direction) - this.rotation;
+          // then cosine of this angle...
+          dist *= Math.cos(a); // project rays's vector onto camera vector
           if (dist < closest) {
             closest = dist;
             closestPoint = castRes;
