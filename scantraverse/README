@@ -1,0 +1,17 @@
+scan traverse tries to find a path via scanning using modified A* in 2D grid
+
+- A* as in keeping track of distance heuristics for all surrounding neighbors and makeing traversal step by step
+- modified as in finding its neighbors is using a different process (eg. line-scan to find the next polygon
+           - optional: polygon merging if the neighbor representation graph is 1 path all the way.)
+
+
+[Improvements]
+- takes look at obstacles using ray-casting.....but how about between ray casts? what ify ou miss a narrow corridor...
+- advanced scneario to do more detailed ray casting: interpolsate rays to make sure from endpoint to endpoint
+(bigger of the 2 endpoints if 1 is long and the next is short) at least you traverse every 20*20 square
+
+structure
+---------------------------------------
+openNode
+- isOpened(if not fully open....)
+- neighbors (double sided connection btw)

@@ -1,6 +1,6 @@
-import {Boundary} from "../boundary";
+import {Boundary} from "../../JLibrary/geometry/boundary";
 import * as THREE from "three";
-import {CRay, Drawable} from "../cray";
+import {CRay, Drawable} from "../../JLibrary/geometry/cray";
 import {R_Canvas} from "../../JLibrary/canvas/canvas";
 import {Listener} from "../../JLibrary/canvas/canvas_listener";
 import {ForEachArrayItem} from "../../JLibrary/functions/functional";

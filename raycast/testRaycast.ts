@@ -1,13 +1,12 @@
 import {R_Canvas} from "../JLibrary/canvas/canvas";
-import {Boundary} from "./boundary";
+import {Boundary} from "../JLibrary/geometry/boundary";
 import * as THREE from 'three'
-import {Drawable} from "./cray";
+import {Drawable} from "../JLibrary/geometry/cray";
 import {Listener} from "../JLibrary/canvas/canvas_listener";
 import {ForEachArrayIndex, ForEachArrayItem} from "../JLibrary/functions/functional";
-import {Particle} from "./particle";
 import {QuackingV2} from "../JLibrary/functions/structures";
 import {ColorConversions} from "../JLibrary/tools/color_conversions";
-import {PlayerParticle} from "./PlayerParticle";
+import {PlayerParticle} from "../JLibrary/geometry/PlayerParticle";
 import {CLAMP} from "../JLibrary/functions/algebra";
 // proper added after installing types
 import * as dat from 'dat.gui';
@@ -31,14 +30,15 @@ function cleanDraw(...args: any[]) {
   }, args);
 }
 
-function drawPlayerView(castDist) {
+// Location distances
+function drawPlayerView(castDistance: number[]) {
   let renderStart = {x: 500, y: 0};
   let renderSize = {x: 500, y: 500};
   // this whole thing
-  let stripWidth = (renderSize.x / castDist.length);
+  let stripWidth = (renderSize.x / castDistance.length);
   // Draw casted light array distances on the rendered section
   ForEachArrayIndex((i: number) => {
-    let dist: number = castDist[i];
+    let dist: number = castDistance[i];
     // 100/dist  is weak perspective projection that 'alleviates' fish0eye
     //100 / dist *
     let stripHeight = CLAMP(renderSize.y - dist, 0, 500);
@@ -49,7 +49,7 @@ function drawPlayerView(castDist) {
         debug: false,
         lineWidth: 1
       });
-  }, castDist);
+  }, castDistance);
 }
 
 if (ctx) {
@@ -90,7 +90,7 @@ if (ctx) {
   cleanDraw(...boundaries, particle);
   drawPlayerView(castDist);
 
-  let reDrawLambda = ((e) => {
+  let reDrawLambda = ((_e : EventListenerOptions) => {
     if (ctx) {
       cleanCanvas(ctx);
     }

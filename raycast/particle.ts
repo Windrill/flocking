@@ -1,9 +1,9 @@
-import {CRay} from "./cray";
+import {CRay} from "../JLibrary/geometry/cray";
 import {DEG2RAD} from "../JLibrary/functions/algebra";
 import * as THREE from 'three'
 import {ArrayAlloc, ForEachArrayIndex, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
-import {Boundary} from "./boundary";
+import {Boundary} from "../JLibrary/geometry/boundary";
 import {diag} from "mathjs";
 
 class Particle {
