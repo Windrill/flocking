@@ -1,6 +1,5 @@
 import * as THREE from 'three'
-// import {Boid} from "./boid";
-import {D_Rect} from "./JLibrary/functions/structures";
+import {D_Rect} from "../JLibrary/functions/structures";
 
 // Loll....try to do point??? it's like a different point
 class Point {
@@ -10,21 +9,21 @@ class Point {
   mark: boolean;
 
   // when your mouse rect hovers over, show green
-  mark2: boolean;
+  markGreen: boolean;
 
   constructor(id: number, x: number, y: number) {
     this.id = id;
     this.pos = new THREE.Vector2(x, y);
     this.mark = false;
-    this.mark2 = false;
+    this.markGreen = false;
   }
 
   // add all points: they will all be treated in the same way except pos...???!
   show(ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = "#33ccff";
-    if (this.mark2) {
+    if (this.markGreen) {
       ctx.fillStyle = "#35d994";
-      this.mark2 = false;
+      this.markGreen = false;
     }
     ctx.fillRect(this.pos.x, this.pos.y, 9, 9);
     //ctx.fillStyle = "#000000";
@@ -39,6 +38,7 @@ class QuadTree {
   private br?: QuadTree;// | undefined;
   private bl?: QuadTree;// | undefined;
   private divided: boolean;
+
   private points: {
     // object's keys are string[]....
     // specifies index's type for object
@@ -60,8 +60,8 @@ class QuadTree {
     let hh = this.boundary.height / 2;
     let x = this.boundary.x + this.boundary.width/2;
     let y = this.boundary.y + this.boundary.height/2;
-    // i wanted to multiply the width and heigth now w and h is twice the 'half width half height' crazy rectangel, but the code seems corrected
-    // console.log("Bundary splitting: ", x, y, hw, hh);
+    // i wanted to multiply the width and height now w and h is twice the 'half width half height' crazy rectangel, but the code seems corrected
+    // console.log("Boundary splitting: ", x, y, hw, hh);
     let tr = new D_Rect(x, y - hh, hw, hh);
     this.tr = new QuadTree(tr);
     let tl = new D_Rect(x - hw, y - hh, hw, hh);
@@ -88,9 +88,13 @@ class QuadTree {
         }
       }
       if (this.divided) {
+        // @ts-ignore
         this.tr.query(bound, found);
+        // @ts-ignore
         this.tl.query(bound, found);
+        // @ts-ignore
         this.br.query(bound, found);
+        // @ts-ignore
         this.bl.query(bound, found);
       }
     } else {
@@ -110,6 +114,7 @@ class QuadTree {
       }
     }
     if (this.divided) {
+      // @ts-ignore
       return (this.tr.remove(point)) || this.tl.remove(point) || this.br.remove(point) || this.bl.remove(point);
     }
     return false;
@@ -151,9 +156,13 @@ class QuadTree {
     ctx.stroke();
 
     if (this.divided) {
+      // @ts-ignore
       this.tr.show(ctx);
+      // @ts-ignore
       this.tl.show(ctx);
+      // @ts-ignore
       this.br.show(ctx);
+      // @ts-ignore
       this.bl.show(ctx);
     }
     // let mapLen = Object.keys(this.points).length;

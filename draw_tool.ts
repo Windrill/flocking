@@ -23,7 +23,7 @@ class d {
       // X Axis
       this.cline(i, 5, i, 10);
       this.ctx.fillText(String(i), i - 10, 23);
-      // y axis
+      // Y Axis
       this.cline(5, i, 10, i);
       this.ctx.fillText(String(i), 13, i + 5);
     }

@@ -1,10 +1,9 @@
-import {CRay} from "../JLibrary/geometry/cray";
+import {CRay} from "../JLibrary/geometry/CRay";
 import {DEG2RAD} from "../JLibrary/functions/algebra";
 import * as THREE from 'three'
 import {ArrayAlloc, ForEachArrayIndex, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
-import {Boundary} from "../JLibrary/geometry/boundary";
-import {diag} from "mathjs";
+import {Boundary} from "../JLibrary/geometry/Boundary";
 
 class Particle {
   public pos: THREE.Vector2;

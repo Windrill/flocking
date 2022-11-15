@@ -1,18 +1,28 @@
 import {Point, QuadTree} from "./QuadTree";
 import * as THREE from 'three';
 import {Vector2} from 'three';
-import {WRAP} from "./JLibrary/functions/algebra";
-import {Accumulator, ForEachArrayItem} from "./JLibrary/functions/functional";
-import {D_Rect, NormalizeX} from "./JLibrary/functions/structures";
-import {R_Canvas} from "./JLibrary/canvas/canvas";
-import {CLAMP_VEC2} from "./JLibrary/r_three";
+import {C_DOT, WRAP} from "../JLibrary/functions/algebra";
+import {Accumulator, ForEachArrayItem} from "../JLibrary/functions/functional";
+import {BackendType, CanvasContext, D_Rect, NormalizeX} from "../JLibrary/functions/structures";
+import {R_Canvas} from "../JLibrary/canvas/canvas";
+import {CLAMP_VEC2} from "../JLibrary/r_three";
 
 const ORG = new THREE.Vector2(0, 0);
 // how to pass more shared context to other modules?
 let canvas = document.getElementsByTagName("canvas")[0];
-let ctx: CanvasRenderingContext2D = canvas.getContext('2d');
+let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 
-let regularCanvas = new R_Canvas(ctx);
+// Difference between boids and renderBoids?
+let regularCanvas : R_Canvas;
+if (ctx) {
+  let canvasContext : CanvasContext = {
+    ctx: ctx,
+    canvasSize: {W: canvas.width, H: canvas.height},
+    element: canvas, // body?
+    backendType: BackendType.HTML5Backend
+  }
+  regularCanvas = new R_Canvas(canvasContext);
+}
 
 let boidColors = [
   "#d95252",
@@ -38,7 +48,7 @@ class Boid extends Point {
   private leader: Boid | undefined;
   private isLeader: boolean = false;
   // goal direction???
-  private forward: Vector2[];
+  // private forward: Vector2[];
 
   private qt: QuadTree;
   // Context like a delegate, but actually a reference
@@ -74,9 +84,10 @@ class Boid extends Point {
     // mark to draw/trace values of this boid
     this.mark = false;
     // Mark2: mouse hover to show green color : TODO fix when it doesn't seem to mark even when you hovered over
-    this.mark2 = false;
+    this.markGreen = false;
   }
 
+  // Translate into walls
   wrapPosition() {
     this.pos.x = WRAP(this.pos.x, 0, this.randomRange[0]);
     this.pos.y = WRAP(this.pos.y, 0, this.randomRange[1]);
@@ -110,21 +121,34 @@ class Boid extends Point {
       arrowMagnitudes.push(item.length());
     }, forceResult);
     let normalizedMagnitudes = NormalizeX(...arrowMagnitudes);
-    // for (let i = 0; i < 3; i++) {
-    //   regularCanvas.carrow(this.pos, forceResult[i], 40 * normalizedMagnitudes[i],
-    //     {fillStyle: boidColors[i], debug: false, lineWidth: 2}
-    //   );
-    // }
+    for (let i = 0; i < 3; i++) {
+      regularCanvas.carrow(this.pos, forceResult[i], 40 * normalizedMagnitudes[i],
+        {fillStyle: boidColors[i], debug: false, lineWidth: 2}
+      );
+    }
 
-    regularCanvas.carrow(this.pos, alignment, 10,
-      {fillStyle: boidColors[3], debug: false, lineWidth: 2}
-    );
+    // regularCanvas.carrow(this.pos, alignment, 20,
+    //   {fillStyle: boidColors[3], debug: false, lineWidth: 2}
+    // );
 
     // Add forces to acceleration
     this.acceleration.add(alignment);
     this.acceleration.add(separation);
     this.acceleration.add(cohesion);
+  }
 
+  // avoidance
+  avoidance() {
+    // firstly you draw right bounce and left bounce
+    // you need walls to represent rays
+
+
+    // secondly you draw ball's max angle rotation per delta time, and rotate the velocity by that plus deceleration to avoid touching the wall...
+
+    // if linetrace forwards finds an avoidance obstacle, traverse towards the reflected angle towards that
+    // 180 - acos(dot(obstacle, direction)) is the angle, instead of moving forward move your magnitude towards turning direction over time?
+    // can you do instantaneous velocity calculation?
+    // C_DOT
   }
 
   findLeader() {
@@ -155,7 +179,7 @@ class Boid extends Point {
   threeForces(): Vector2[] {
     // Alignment, Cohesion, Separation
     let perception = [180, 110, 55];
-    let forces: Boid[][] = [];
+    let forces: Point[][] = []; // Boid
     let steering = [];
 
     // Add perception boxes, query results, and initiate steer direction
@@ -267,13 +291,20 @@ class Boid extends Point {
       Boid.ctx.fillText(`${((this.pos.x).toFixed(0))},${(this.pos.y).toFixed(0)}`, this.pos.x + 15, this.pos.y + 15);
 
       Boid.ctx.fillStyle = "#4c2df7";
-    } else if (this.mark2) {
+    } else if (this.markGreen) {
       Boid.ctx.fillStyle = "#35d994";
-      this.mark2 = false;
+      this.markGreen = false;
     }
     // try to draw as a midpoint....
     Boid.ctx.fillRect(this.pos.x - 4, this.pos.y - 4, 8, 8);
     //Boid.ctx.fillStyle = "#000000";
+  }
+}
+
+class Plane {
+
+  draw() {
+
   }
 }
 
