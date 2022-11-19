@@ -20,6 +20,6 @@ ForEachArrayItem((item:any)=>{
 // tree.insert(new Point(1, 227, 74));
 // let queryResults : Point[]= [];
 // tree.query(
-//   MidPointToD_Rect(199,129,80,80), queryResults
+//   MidPointToEdge(199,129,80,80), queryResults
 // );
 // console.log(queryResults);

@@ -1,15 +1,13 @@
-import {Point, QuadTree} from "./QuadTree";
-import {Boid} from "./boid";
-import {d} from "../draw_tool";
-import {BackendType, CanvasContext, D_Rect} from "../JLibrary/functions/structures";
-import {ForEachArrayItem} from "../JLibrary/functions/functional";
+import {QuadTree} from "./QuadTree";
+import {Boid} from "./Boid";
+import {BackendType, CanvasContext, D_Rect, MidPointToTopLeftBoxTuple} from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {Boundary} from "../JLibrary/geometry/Boundary";
 import * as THREE from 'three';
-import {Cartesian2Polar} from "../JLibrary/functions/algebra";
-import {CRay} from "../JLibrary/geometry/CRay";
+import {World} from "./World";
+import {Listener} from "../JLibrary/canvas/canvas_listener";
+import {ForEachArrayItem} from "../JLibrary/functions/functional";
 
-// import {Listener} from "./JLibrary/canvas/canvas_listener";
 // let lastLoop = new Date();
 
 // Main
@@ -22,78 +20,74 @@ let parseData = {
   forceHtml: document.getElementById("maxforce"),
   speedHtml: document.getElementById("maxspeed")
 };
+// console.log(parseData.alignHtml);
+// console.log(parseData.alignHtml.value);
 let mouseX: number;
 let mouseY: number;
 let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
-let renderContext: R_Canvas;
-// console.log(parseData.alignHtml);
-// console.log(parseData.alignHtml.value);
+
+let mainInstance: MainClass;
+let canvasContext: CanvasContext;
 
 class MainClass {
-  static initialization: boolean = true;
-  static intervalPlaying: any;
+  initialization: boolean;
+  intervalPlaying: any;
 
-  static flock: Boid[] = [];
-  static pause = true;
-  static quadTree = new QuadTree((new D_Rect(0, 0, canvas.width, canvas.height)));
+  flock: Boid[] = [];
+  pause = true;
+  renderContext: R_Canvas;
+  world: World;
 
-  static startClicked() {
-    if (MainClass.initialization && ctx) {
-      // Initialize context
-      // ctx?: CanvasRenderingContext2D
-      // canvasSize?: WidthHeight // W, H
-      // element?: HTMLElement // optional to assign eventListener inputs on; you could put a default of 'body', that
-      // // listens to some global numbers such as mouseX and mouseY locations
-      //
-      // // Currently mixing HTML5 backend and THREE backend....organize into 2 types in the near future
-      // camera?: any // dont want any three.js dependencies here
-      // backendType: BackendType;// = BackendType::HTML5Backend;
+  constructor(world: World, canvasContext: CanvasContext) {
+    this.world = world;
+    this.initialization = true;
+    this.renderContext = new R_Canvas(canvasContext);
+  }
 
-      let canvasContext : CanvasContext = {
-        ctx: ctx,
-        canvasSize: {W: canvas.width, H: canvas.height},
-        element: canvas, // body?
-        backendType: BackendType.HTML5Backend
-      };
-      renderContext = new R_Canvas(canvasContext);
-
-
-      for (let i = 0; i < 18; i++) {
+  startClicked() {
+    console.log("Start clicked;");
+    let numBoids = 18;
+    if (this.initialization) {
+      // Render Boids
+      for (let i = 0; i < numBoids; i++) {
         //let nb = new Point(Math.random()*width, Math.random()*height);
-        let nb = new Boid(i, MainClass.quadTree, [canvas.width, canvas.height]);
+        let nb = new Boid(i, this.world, [canvas.width, canvas.height]);
         // nb.mark = true;
         // nb.setSpeedRestraints(parseData);
 
-        MainClass.flock.push(nb);
-        MainClass.quadTree.insert(nb);
+        this.flock.push(nb);
+        this.world.qt.insert(nb);
       }
       //flock[20].mark = true;
-      MainClass.initialization = false;
+      this.initialization = false;
     }
 
-    if (MainClass.pause) {
-      MainClass.intervalPlaying = setInterval(MainClass.render, 20);
-      MainClass.pause = false;
+    if (this.pause) {
+      this.intervalPlaying = setInterval((this.render).bind(this), 20);
+      this.pause = false;
     } else {
-      clearInterval(MainClass.intervalPlaying);
-      MainClass.pause = true;
+      clearInterval(this.intervalPlaying);
+      this.pause = true;
     }
   } // trigger play/pause
 
 
-  static render() {
+  render() {
     // let thisLoop = new Date();
     // let fps = 1000 / (thisLoop - lastLoop);
     // lastLoop = thisLoop;
     // console.log("Rendering at: ", fps);
-    renderContext.drawBoard();
-    let crange = new D_Rect(mouseX - 40, mouseY - 40, 80, 80);
+    this.renderContext.styles.strokeStyle = "#167a7a";
+    this.renderContext.styles.fillStyle = "#167a7a";
+    this.renderContext.drawBoard();
+    let crange = new D_Rect(
+      mouseX - 40, mouseY - 40, 80, 80);
     if (ctx) {
       crange.show(ctx);
     }
 
     //
-    let queries = MainClass.quadTree.query(crange, []);
+    let queries = this.world.qt.query(crange, []);
     for (let q of queries) {
       q.markGreen = true;
     }
@@ -101,21 +95,46 @@ class MainClass {
     for(q of flock){
       q.show(ctx);
     }*/
-    for (let i = 0; i < MainClass.flock.length; i++) {
-      MainClass.flock[i].flocking();
-      MainClass.flock[i].draw();
 
-      //for(let i=0;i<flock.length;i++){
-      MainClass.flock[i].update(MainClass.quadTree);
-    }
+    ForEachArrayItem((f : Boid) => {
+      f.flocking();
+      f.draw();
+      f.update();
+    }, this.flock);
+
+    ForEachArrayItem((b : Boundary) => {
+      b.draw(this.renderContext);
+    }, this.world.boundaries);
   }
-}
+} // End mainClass class
 
 if (ctx) {
+  // Map assets
+  let b1 = new Boundary(new THREE.Vector2(0, 0), new THREE.Vector2(0, canvas.height));
+  b1.name = ("Left");
+  let b2 = new Boundary(new THREE.Vector2(canvas.width, 0), new THREE.Vector2(canvas.width, canvas.height));
+  b2.name = ("Right");
+  let b3 = new Boundary(new THREE.Vector2(0, 0), new THREE.Vector2(canvas.width, 0));
+  b3.name = ("Top");
+  let b4 = new Boundary(new THREE.Vector2(0, canvas.height), new THREE.Vector2(canvas.width, canvas.height));
+  b4.name = ("Bottom");
+  let boundaries = [b1, b2, b3, b4];
+
+
+  let quadTree = new QuadTree((new D_Rect(0, 0, canvas.width, canvas.height)));
+  let world = new World(boundaries, quadTree);
+  canvasContext = {
+    ctx: ctx,
+    canvasSize: {W: canvas.width, H: canvas.height},
+    element: canvas, // body?
+    backendType: BackendType.HTML5Backend
+  };
+  mainInstance = new MainClass(world, canvasContext);
+
   Boid.setCanvas(ctx);
   window.addEventListener("blur", function (_focusEvent) {
-    MainClass.pause = true;
-    clearInterval(MainClass.intervalPlaying);
+    mainInstance.pause = true;
+    clearInterval(mainInstance.intervalPlaying);
   }, false);
 
   document.onmousemove = function (e) {
@@ -127,47 +146,25 @@ if (ctx) {
     mouseY = e.clientY + document.body.scrollTop;
   }
 
-  let startEle = document.querySelector("#start");
-  if (startEle) {
-    startEle.addEventListener("mousedown", MainClass.startClicked);
+  if (ctx) {
+    let startListen = new Listener(canvasContext);
+    let startButton = document.querySelector("#start");
+    if (startButton) {
+      startListen.setElement(startButton);
+    }
+
+    startListen.setListenFunction("mousedown",
+      (mainInstance.startClicked).bind(mainInstance)
+    );
   }
 
   // document.getElementsByTagName("body")[0].innerHTML += "<br/>red, green, yellow";
 
-  let b1 = new Boundary(new THREE.Vector2(0,0), new THREE.Vector2(0, canvas.height));
-  let b2 = new Boundary(new THREE.Vector2(canvas.width,0), new THREE.Vector2(0, canvas.height));
-  let b3 = new Boundary(new THREE.Vector2(0,0), new THREE.Vector2(canvas.width, 0));
-  let b4 = new Boundary(new THREE.Vector2(0,canvas.height), new THREE.Vector2(canvas.width, 0));
-  let boundaries = [b1, b2, b3, b4];
-
-
+  // if (castTrace()) {
+  //
+  // }
 }
 
-// Returns the closest's distance to this ray
-// if around 90 degrees then move left/right, < 90 then move right > 90 move left... add this after you visualize the collision
-function castTrace(ray : CRay, boundary : Boundary) {
-  let closest = Infinity;
-  let closestPoint = null;
-
-  ForEachArrayItem((boundary: Boundary) => {
-    // line line?
-    let castResult = ray.cast(boundary);
-
-    if (castResult) {
-      let dist = castResult.distanceTo(pos);
-      // to negate fish-eye more: get angle of the ray relative to direction of the camera
-      // optionally make fish-eye unproject a boolean!
-      const a = Cartesian2Polar(ray.direction) - rotation;
-      // then cosine of this angle...
-      dist *= Math.cos(a); // project rays's vector onto camera vector
-      if (dist < closest) {
-        closest = dist;
-        closestPoint = castResult;
-      }
-    }
-  }, boundary);
-  return [closestPoint, closest];
-}
 
 /*
 

@@ -2,8 +2,6 @@
     <title>Flock</title>
     <body>
         <canvas width="1000" height="500" tabindex="1"></canvas>
-<!--        https://stackoverflow.com/questions/63483096/how-to-call-typescript-function-from-index-html-->
-<!--        // dont use this bc it requires glboa  onclick="setup();"-->
         <button id="start" >Start</button>
 
 <!--        put an on change setting-->
@@ -15,13 +13,9 @@
         <label for="separation"></label><input id="separation" type="range" min="0" max="5" value="1" step="0.1">
         <p>Maxforce</p><label for="maxforce"></label><input id="maxforce" type="range" min="0" max="10" value="1" step="0.1">
         <p>Maxspeed</p><label for="maxspeed"></label><input id="maxspeed" type="range" min="0" max="10" value="1" step="0.1">
-<!--        <script src="three.min.js"></script>-->
-<!--        Uncaught SyntaxError: Cannot use import statement outside a module (at renderBoids.ts:1:1)-->
-        <script type="module" src="./draw_tool.ts"></script>
         <script type="module" src="boids/QuadTree.ts"></script>
-        <script type="module" src="boids/boid.ts"></script>
+        <script type="module" src="boids/Boid.ts"></script>
         <script type="module" src="boids/renderBoids.ts"></script>
-
 <!--        <script type="module" src="./raycast/testRaycast.ts"></script>-->
     </body>
 </html>

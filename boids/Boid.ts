@@ -1,11 +1,22 @@
-import {Point, QuadTree} from "./QuadTree";
+import {Point} from "./QuadTree";
 import * as THREE from 'three';
 import {Vector2} from 'three';
-import {C_DOT, WRAP} from "../JLibrary/functions/algebra";
+import {WRAP} from "../JLibrary/functions/algebra";
 import {Accumulator, ForEachArrayItem} from "../JLibrary/functions/functional";
-import {BackendType, CanvasContext, D_Rect, NormalizeX} from "../JLibrary/functions/structures";
+import {
+  BackendType,
+  CanvasContext,
+  D_Rect,
+  MidPointToBottomLeft,
+  MidPointToTopLeft, MidPointToTopLeftBoxTuple,
+  NormalizeX
+} from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {CLAMP_VEC2} from "../JLibrary/r_three";
+import {castTrace, World} from "./World";
+import {Vec2Ray} from "../JLibrary/geometry/Conversions";
+import {Boundary} from "../JLibrary/geometry/Boundary";
+import {CRay} from "../JLibrary/geometry/CRay";
 
 const ORG = new THREE.Vector2(0, 0);
 // how to pass more shared context to other modules?
@@ -13,9 +24,9 @@ let canvas = document.getElementsByTagName("canvas")[0];
 let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 
 // Difference between boids and renderBoids?
-let regularCanvas : R_Canvas;
+let regularCanvas: R_Canvas;
 if (ctx) {
-  let canvasContext : CanvasContext = {
+  let canvasContext: CanvasContext = {
     ctx: ctx,
     canvasSize: {W: canvas.width, H: canvas.height},
     element: canvas, // body?
@@ -50,7 +61,8 @@ class Boid extends Point {
   // goal direction???
   // private forward: Vector2[];
 
-  private qt: QuadTree;
+  // private qt: QuadTree;
+  private world: World;
   // Context like a delegate, but actually a reference
   public static ctx: CanvasRenderingContext2D;
 
@@ -59,7 +71,7 @@ class Boid extends Point {
   }
 
   // can this boid treat 1 and array the same...
-  constructor(id: number, qt: QuadTree, randomRange: number[]) {
+  constructor(id: number, world: World, randomRange: number[]) {
     super(id, Math.random() * randomRange[0], Math.random() * randomRange[1]);
     this.maxForce = 3;
     this.maxSpeed = 5;
@@ -73,7 +85,7 @@ class Boid extends Point {
 
     this.forceResult = [];
     // Reference
-    this.qt = qt;
+    this.world = world;
 
     // automatically assume it's 0, 0, width then height
     this.randomRange = randomRange;
@@ -127,14 +139,30 @@ class Boid extends Point {
       );
     }
 
-    // regularCanvas.carrow(this.pos, alignment, 20,
-    //   {fillStyle: boidColors[3], debug: false, lineWidth: 2}
-    // );
-
     // Add forces to acceleration
     this.acceleration.add(alignment);
     this.acceleration.add(separation);
     this.acceleration.add(cohesion);
+
+    let direction = (this.acceleration.clone()).add(this.velocity);
+    let traceRay: CRay = Vec2Ray(this.pos, this.pos.clone().add(direction));
+
+    regularCanvas.carrow(this.pos, direction, 80, {fillStyle: "#ee4747", debug: false, lineWidth: 4});
+    regularCanvas.write(traceRay.toString(), traceRay.getPos().x, traceRay.getPos().y);
+
+    ForEachArrayItem((b: Boundary) => {
+      let traceDone = castTrace(traceRay, b);
+      if (traceDone[1]) {
+        let directionVector = traceDone[1].clone().sub(this.pos);
+        // (this.pos.clone().sub(traceDone).length())
+        regularCanvas.carrow(this.pos, directionVector, (directionVector).length(),
+          {fillStyle: "#31d08e", debug: false, lineWidth: 4});
+      }
+    }, this.world.boundaries);
+    // regularCanvas.carrow(this.pos, alignment, 20,
+    //   {fillStyle: boidColors[3], debug: false, lineWidth: 2}
+    // );
+
   }
 
   // avoidance
@@ -163,10 +191,9 @@ class Boid extends Point {
     let dist = 70;
 
     let queryResult: Point[] = [];
-    let rect = new D_Rect(
-      this.pos.x - 70 / 2, this.pos.y - 70 / 2,
-      dist, dist);
-    this.qt.query((rect), queryResult);
+
+    let rect = new D_Rect(...MidPointToBottomLeft(this.pos.x, this.pos.y, dist, dist));
+    this.world.qt.query(rect, queryResult);
     let haveLeader = false;
     if (queryResult.length > 0) {
       // if anybody forward
@@ -184,29 +211,20 @@ class Boid extends Point {
 
     // Add perception boxes, query results, and initiate steer direction
     for (let i = 0; i < perception.length; i++) {
-      let rect = new D_Rect(
-        this.pos.x - perception[i] / 2, this.pos.y - perception[i] / 2,
-        perception[i], perception[i]);
-      if (this.mark) {
-        rect.show(Boid.ctx);
-      }
+      let rect = new D_Rect(...MidPointToTopLeftBoxTuple(this.pos.x, this.pos.y, perception[i], perception[i]));
+      this.markShow();
       let queryResult: Point[] = [];
-      this.qt.query((rect), queryResult);
+      this.world.qt.query((rect), queryResult);
       forces.push(queryResult);
       steering.push((new THREE.Vector2(0, 0)));
     }
 
-    let funcAddVelocity = (acc: THREE.Vector2, item: Boid) => {
-      return acc.add(item.velocity);
-    };
-    let funcAddLocation = (acc: THREE.Vector2, item: Boid) => {
-      return acc.add(item.pos);
-    };
+    let addVelocity = (acc: THREE.Vector2, item: Boid) => acc.add(item.velocity);
+    let addLocation = (acc: THREE.Vector2, item: Boid) => acc.add(item.pos);
 
     // Calculate steer direction for alignment
     if (forces[0].length > 1) {
-      let alignForce = Accumulator(funcAddVelocity, forces[0], (new THREE.Vector2(0, 0)));
-      steering[0] = alignForce;
+      steering[0] = Accumulator(addVelocity, forces[0], (new THREE.Vector2(0, 0)));
       CLAMP_VEC2(steering[0], this.maxForce);
 
       steering[0].divideScalar((forces[0].length));
@@ -215,7 +233,7 @@ class Boid extends Point {
 
     // go toward center of flock!
     if (forces[1].length > 1) {
-      let cohesiveForce = Accumulator(funcAddLocation, forces[1], (new THREE.Vector2(0, 0)));
+      let cohesiveForce = Accumulator(addLocation, forces[1], (new THREE.Vector2(0, 0)));
 
       steering[1] = cohesiveForce.divideScalar(forces[1].length);
       steering[1].sub(this.pos);
@@ -234,8 +252,7 @@ class Boid extends Point {
         // 30: length of 25 = very small force
         if (separationForce.length() != 0) {
           return acc.add(
-            separationForce
-              .multiplyScalar((8 / separationForce.length()))
+            separationForce.multiplyScalar((8 / separationForce.length()))
           );
         } else {
           return acc;
@@ -248,12 +265,11 @@ class Boid extends Point {
     return steering;
   }
 
-  // actualy not so intersted in this.
-// this.
+  // actually not so interested in this.
 //   runningAverage = [];
 //   runningLength = 5;
 //   runningSize = 0;
-  update(qt: QuadTree) {
+  update() {
     this.pos.add(this.velocity);
     if (this.mark) {
       //console.log('this.vel', this.vel);
@@ -263,50 +279,45 @@ class Boid extends Point {
     //try to add running average to velocity instead of acceleration directly...
     this.velocity.add(this.acceleration);
 
-
-    // this.velocity = this.acceleration;
     // console.log(this.acceleration);
     CLAMP_VEC2(this.velocity, this.maxSpeed);
     this.wrapPosition();
     this.acceleration.set(0, 0);
-    qt.remove(this);
-    qt.insert(this);
+    this.world.qt.remove(this);
+    this.world.qt.insert(this);
   }
 
-
-  draw() {
-    Boid.ctx.fillStyle = "#33ccff";
-
-    // i suppose this is display only. didn't like it this way though.
-    // at least didnt like it in 2 places, bvoids, and in quadtree...needs to query tree for locatiion
+  markShow() {
     if (this.mark) {
-      // let rect = new D_Rect(this.pos.x - 20, this.pos.y - 20, 80, 80);
-      // if (this.mark) {
-      //   rect.show(Boid.ctx);
-      // }
-      // Boid.ctx.fillText(`${(this.velocity.x)},${(this.velocity.y)}`, this.pos.x + 15, this.pos.y + 15);
+      let rect = new D_Rect(
+        this.pos.x - 20, this.pos.y - 20, 80, 80);
+      rect.show(Boid.ctx);
+    }
+  }
+
+  markDraw() {
+    if (this.mark) {
+      // markShow()
       Boid.ctx.fillText(`${(this.forceResult[0].x).toFixed(0)},${(this.forceResult[0].x).toFixed(0)}`, this.pos.x + 15, this.pos.y + 25);
       Boid.ctx.fillText(`${(this.forceResult[1].x).toFixed(0)},${(this.forceResult[1].x).toFixed(0)}`, this.pos.x + 15, this.pos.y + 35);
       Boid.ctx.fillText(`${(this.forceResult[2].x).toFixed(0)},${(this.forceResult[2].x).toFixed(0)}`, this.pos.x + 15, this.pos.y + 45);
       Boid.ctx.fillText(`${((this.pos.x).toFixed(0))},${(this.pos.y).toFixed(0)}`, this.pos.x + 15, this.pos.y + 15);
-
       Boid.ctx.fillStyle = "#4c2df7";
     } else if (this.markGreen) {
       Boid.ctx.fillStyle = "#35d994";
       this.markGreen = false;
     }
-    // try to draw as a midpoint....
-    Boid.ctx.fillRect(this.pos.x - 4, this.pos.y - 4, 8, 8);
-    //Boid.ctx.fillStyle = "#000000";
   }
-}
-
-class Plane {
 
   draw() {
-
+    Boid.ctx.fillStyle = "#33ccff";
+    this.markDraw();
+    Boid.ctx.fillRect(
+      ...MidPointToTopLeftBoxTuple(this.pos.x, this.pos.y, 8, 8)
+    );
   }
 }
+
 
 export {
   Boid,
