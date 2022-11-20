@@ -7,9 +7,8 @@ export default defineConfig({
   // plugins: [vue()],
   resolve: {
     alias: {
-      'npm': path.resolve(__dirname, './node_modules/@types/'),
+      // 'npm': path.resolve(__dirname, './node_modules/@types/'),
       // '@': path.resolve(__dirname, './src'),
-
     },
   }
 })
