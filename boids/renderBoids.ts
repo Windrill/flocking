@@ -30,6 +30,22 @@ let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 let mainInstance: MainClass;
 let canvasContext: CanvasContext;
 
+function BoidMovementControl(mainC : MainClass, localWorldCanvasContext : CanvasContext, b: Boid) {
+  console.log(mainC.flock);
+  let controlledBoid = mainC.flock[0];
+  let boidStopLambda = (e : KeyboardEvent) => {
+    if (e.key == 's') {
+      console.log("Pausing unpausing boid");
+      controlledBoid.paused = !controlledBoid.paused;
+    }
+  }
+  controlledBoid.addComponent(localWorldCanvasContext,
+    [
+      ["keydown", boidStopLambda]
+    ]);
+
+}
+
 class MainClass {
   initialization: boolean;
   intervalPlaying: any;
@@ -58,6 +74,11 @@ class MainClass {
 
         this.flock.push(nb);
         this.world.qt.insert(nb);
+
+        // Hacky exposure to different levels of contexts....
+        if (i == 0) {
+          BoidMovementControl(this, canvasContext, nb);
+        }
       }
       //flock[20].mark = true;
       this.initialization = false;
@@ -140,7 +161,7 @@ if (ctx) {
   // ProjectP is for based on new thing. this is based on 0
   let setBoundary = (b: Boundary) => {
     // Automatic function check if this is valid or not...
-    // set boundary based on autoboundary object.
+    // set boundary based on auto-boundary object.
     let cb = b.contextObject["autoBoundary"];
 
     let relativeLine = Algebra.ProjectP(new THREE.Vector2(1, 0), cb.lineLength / 2, RAD2DEG * cb.angleRad);

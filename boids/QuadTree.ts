@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import {D_Rect} from "../JLibrary/functions/structures";
+import {CObject} from "../JLibrary/geometry/Boundary";
 
-class Point {
-  id: number;
+class Point extends CObject {
+  id: number; // Boid numbering system for cross reference boids.
   pos: THREE.Vector2;// | THREE.Vector2[];
   // boolean set manually so you can trace the path of a boid running around in canvas
   mark: boolean;
@@ -11,6 +12,7 @@ class Point {
   markGreen: boolean;
 
   constructor(id: number, x: number, y: number) {
+    super();
     this.id = id;
     this.pos = new THREE.Vector2(x, y);
     this.mark = false;

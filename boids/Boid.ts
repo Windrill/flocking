@@ -54,6 +54,7 @@ class Boid extends Point {
   private alignValue: number;
   private forceResult: Vector2[];
 
+  public paused : boolean;
   // If is leader, ????
   // if you follow then maybe primarily follow leader, also give a limit to steering <--naturally by friction so just add friction then
   private leader: Boid | undefined;
@@ -97,6 +98,8 @@ class Boid extends Point {
     this.mark = false;
     // Mark2: mouse hover to show green color : TODO fix when it doesn't seem to mark even when you hovered over
     this.markGreen = false;
+
+    this.paused = false;
   }
 
   // Translate into walls
@@ -269,6 +272,9 @@ class Boid extends Point {
 //   runningLength = 5;
 //   runningSize = 0;
   update() {
+    if (this.paused) {
+      return;
+    }
     this.pos.add(this.velocity);
     if (this.mark) {
       //console.log('this.vel', this.vel);
