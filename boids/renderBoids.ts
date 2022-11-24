@@ -1,12 +1,13 @@
 import {QuadTree} from "./QuadTree";
 import {Boid} from "./Boid";
-import {BackendType, CanvasContext, D_Rect, MidPointToTopLeftBoxTuple} from "../JLibrary/functions/structures";
+import {BackendType, CanvasContext, D_Point, D_Rect, MidPointToTopLeftBoxTuple} from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {Boundary} from "../JLibrary/geometry/Boundary";
 import * as THREE from 'three';
 import {World} from "./World";
 import {Listener} from "../JLibrary/canvas/canvas_listener";
 import {ForEachArrayItem} from "../JLibrary/functions/functional";
+import {Algebra, RAD2DEG} from "../JLibrary/functions/algebra";
 
 // let lastLoop = new Date();
 
@@ -46,7 +47,7 @@ class MainClass {
 
   startClicked() {
     console.log("Start clicked;");
-    let numBoids = 18;
+    let numBoids = 1;
     if (this.initialization) {
       // Render Boids
       for (let i = 0; i < numBoids; i++) {
@@ -96,13 +97,13 @@ class MainClass {
       q.show(ctx);
     }*/
 
-    ForEachArrayItem((f : Boid) => {
+    ForEachArrayItem((f: Boid) => {
       f.flocking();
       f.draw();
       f.update();
     }, this.flock);
 
-    ForEachArrayItem((b : Boundary) => {
+    ForEachArrayItem((b: Boundary) => {
       b.draw(this.renderContext);
     }, this.world.boundaries);
   }
@@ -130,6 +131,61 @@ if (ctx) {
     backendType: BackendType.HTML5Backend
   };
   mainInstance = new MainClass(world, canvasContext);
+
+  // After Canvas Context is initialized, add event listener...
+  // Can you swap out contexts....for example set the event listener as a window. Or have the Listener class have
+  // a copy of the target element.
+  let mouseBoundary = new Boundary(new THREE.Vector2(0, 0), new THREE.Vector2(0, 0));
+
+  // ProjectP is for based on new thing. this is based on 0
+  let setBoundary = (b: Boundary) => {
+    // Automatic function check if this is valid or not...
+    // set boundary based on autoboundary object.
+    let cb = b.contextObject["autoBoundary"];
+
+    let relativeLine = Algebra.ProjectP(new THREE.Vector2(1, 0), cb.lineLength / 2, RAD2DEG * cb.angleRad);
+    b.set(
+      new THREE.Vector2(cb.lineMidpoint.x - relativeLine.x, cb.lineMidpoint.y - relativeLine.y),
+      new THREE.Vector2(cb.lineMidpoint.x + relativeLine.x, cb.lineMidpoint.y + relativeLine.y)
+    );
+  };
+
+  // Data for boundaries
+  mouseBoundary.contextObject["autoBoundary"] = {
+    // 1. midpoint, 2. length, 3. angle.
+    lineMidpoint: new D_Point(0, 0),
+    lineLength: 100,
+    angleRad: 0
+  };
+
+  // Driver to connect mousemove
+  // can't use 'this' with arrow functions.
+  let thisBoundMouseLambda = ((e: MouseEvent) => {
+    // console.log("Mouse moved, setting boundary");
+    mouseBoundary.contextObject["autoBoundary"].lineMidpoint = new D_Point(e.clientX, e.clientY);
+    setBoundary(mouseBoundary);
+  })
+
+  let thisScrollLambda = (e) => {
+    let scrolled = e.deltaY;
+    let constant = 0.003;
+
+    mouseBoundary.contextObject["autoBoundary"].angleRad += scrolled * constant;
+    setBoundary(mouseBoundary);
+  }
+
+  // Add to component
+  mouseBoundary.addComponent(canvasContext,
+    [
+      ["mousemove", thisBoundMouseLambda],
+      ["mousewheel", thisScrollLambda]
+    ]);
+
+  world.boundaries.push(mouseBoundary);
+
+  // add function: draw boundary as ray
+  // Push custom boundary
+  // world.boundaries.push(new Boundary())
 
   Boid.setCanvas(ctx);
   window.addEventListener("blur", function (_focusEvent) {

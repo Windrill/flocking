@@ -1,7 +1,7 @@
 import {Point} from "./QuadTree";
 import * as THREE from 'three';
 import {Vector2} from 'three';
-import {WRAP} from "../JLibrary/functions/algebra";
+import {Algebra, WRAP} from "../JLibrary/functions/algebra";
 import {Accumulator, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {
   BackendType,
@@ -147,9 +147,6 @@ class Boid extends Point {
     let direction = (this.acceleration.clone()).add(this.velocity);
     let traceRay: CRay = Vec2Ray(this.pos, this.pos.clone().add(direction));
 
-    regularCanvas.carrow(this.pos, direction, 80, {fillStyle: "#ee4747", debug: false, lineWidth: 4});
-    regularCanvas.write(traceRay.toString(), traceRay.getPos().x, traceRay.getPos().y);
-
     ForEachArrayItem((b: Boundary) => {
       let traceDone = castTrace(traceRay, b);
       if (traceDone[1]) {
@@ -159,10 +156,12 @@ class Boid extends Point {
           {fillStyle: "#31d08e", debug: false, lineWidth: 4});
       }
     }, this.world.boundaries);
-    // regularCanvas.carrow(this.pos, alignment, 20,
-    //   {fillStyle: boidColors[3], debug: false, lineWidth: 2}
-    // );
 
+    // draw bounce-off
+    // let direction =
+    // let bottomFlap = Algebra.ProjectP(direction, arrowFlapFromTrunk, -40);
+    // From, To typical.
+    // maybe i want a boundary to have listener component attached. how???? to link them. returns the component when you set it.
   }
 
   // avoidance

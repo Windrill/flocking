@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import {D_Rect} from "../JLibrary/functions/structures";
 
-// Loll....try to do point??? it's like a different point
 class Point {
   id: number;
   pos: THREE.Vector2;// | THREE.Vector2[];

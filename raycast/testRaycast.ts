@@ -1,7 +1,5 @@
 import {R_Canvas} from "../JLibrary/canvas/canvas";
-import {Boundary} from "../JLibrary/geometry/boundary";
 import * as THREE from 'three'
-import {Drawable} from "../JLibrary/geometry/cray";
 import {Listener} from "../JLibrary/canvas/canvas_listener";
 import {ForEachArrayIndex, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {QuackingV2} from "../JLibrary/functions/structures";
@@ -10,6 +8,8 @@ import {PlayerParticle} from "../JLibrary/geometry/PlayerParticle";
 import {CLAMP} from "../JLibrary/functions/algebra";
 // proper added after installing types
 import * as dat from 'dat.gui';
+import {Drawable} from "../JLibrary/geometry/CRay";
+import {Boundary} from "../JLibrary/geometry/Boundary";
 const gui = new dat.GUI();
 
 let canvas = document.getElementsByTagName("canvas")[0];
