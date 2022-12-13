@@ -1,10 +1,37 @@
-import * as THREE from 'three'
+// import * as THREE from 'three'
 import {D_Rect} from "../JLibrary/functions/structures";
 import {CObject} from "../JLibrary/geometry/Boundary";
 
+/**
+ * QuadPoint: Class with a location that can be a point or range added to a QuadTree
+ */
+// This needs to support a location, or a range....
+// I kind of want this to be internally managed but I can't define the boundaries easily so far...
+class QuadPoint extends CObject {
+  // I could have x & y the same to create a point.
+  pos: D_Rect;
+  id: number;
+
+  constructor(x: number, y: number, w = 0, h = 0) {
+    super();
+    this.pos = new D_Rect(x, y, w, h);
+    this.id = QuadTree.tickId();
+  }
+
+  getLocation() {
+    return {x: this.pos.x, y: this.pos.y};
+  }
+
+  getId() {
+    return this.id;
+  }
+}
+
 class Point extends CObject {
   id: number; // Boid numbering system for cross reference boids.
-  pos: THREE.Vector2;// | THREE.Vector2[];
+  // pos: THREE.Vector2;
+  qtp: QuadPoint;
+
   // boolean set manually so you can trace the path of a boid running around in canvas
   mark: boolean;
 
@@ -14,7 +41,8 @@ class Point extends CObject {
   constructor(id: number, x: number, y: number) {
     super();
     this.id = id;
-    this.pos = new THREE.Vector2(x, y);
+    this.qtp = new QuadPoint(x, y);
+    // this.pos = new THREE.Vector2(x, y);
     this.mark = false;
     this.markGreen = false;
   }
@@ -26,7 +54,7 @@ class Point extends CObject {
       ctx.fillStyle = "#35d994";
       this.markGreen = false;
     }
-    ctx.fillRect(this.pos.x, this.pos.y, 9, 9);
+    ctx.fillRect(this.qtp.getLocation().x, this.qtp.getLocation().y, 9, 9);
     //ctx.fillStyle = "#000000";
   }
 }
@@ -43,8 +71,15 @@ class QuadTree {
   private points: {
     // object's keys are string[]....
     // specifies index's type for object
-    [index: number]: Point;
+    [index: number]: QuadPoint;
   };
+
+  private static PointID: number = 0;
+
+  static tickId() {
+    return this.PointID++;
+  }
+
   private static ID: number = 0;
   private id: number;
 
@@ -56,11 +91,15 @@ class QuadTree {
     this.id = QuadTree.ID++;
   }
 
+  getBoundary() {
+    return this.boundary;
+  }
+
   subdivide() {
     let hw = this.boundary.width / 2;
     let hh = this.boundary.height / 2;
-    let x = this.boundary.x + this.boundary.width/2;
-    let y = this.boundary.y + this.boundary.height/2;
+    let x = this.boundary.x + this.boundary.width / 2;
+    let y = this.boundary.y + this.boundary.height / 2;
     // i wanted to multiply the width and height now w and h is twice the 'half width half height' crazy rectangel, but the code seems corrected
     // console.log("Boundary splitting: ", x, y, hw, hh);
     let tr = new D_Rect(x, y - hh, hw, hh);
@@ -76,14 +115,15 @@ class QuadTree {
 
   // looks like query got some problem
   // btw for 'found' don't do this, just have a new array returned
-  query(bound: D_Rect, found: Point[]): Point[] {
-    // let found = [];
+  query(bound: D_Rect, found: QuadPoint[] | null = null): QuadPoint[] {
+    let returns = found ? found : [];
     // console.log("Total points ", this.points);
     if (this.boundary.intersects(bound)) {
       // console.log("intersecting bounfary", this.id, Object.keys(this.points));
       for (let i of Object.keys(this.points)) {
-        if (bound.contains(this.points[Number(i)].pos)) {
-          found.push(this.points[Number(i)]);
+        // if (bound.intersects(this.points[Number(i)].pos)) {
+        if (bound.intersects(this.points[Number(i)].pos)) {
+          returns.push(this.points[Number(i)]);
         } else {
           // console.log("noncontain:", this.points[Number(i)], bound);
         }
@@ -101,11 +141,11 @@ class QuadTree {
     } else {
       // console.log("Out of bound check: ", this.boundary);
     }
-    return found;
+    return returns;
   }
 
-  remove(point: Point): boolean {
-    if (!this.boundary.contains(point.pos)) {
+  removeAll(point: D_Rect): boolean {
+    if (!this.boundary.intersects(point)) {
       return false;
     }
     for (let ob of Object.keys(this.points)) {
@@ -121,32 +161,46 @@ class QuadTree {
     return false;
   }
 
-  insert(point: Point): boolean {
-    if (!this.boundary.contains(point.pos)) {
-      return false;
+  // Changing to support a range
+  insert(point: D_Rect): QuadPoint | null {
+    if (!this.boundary.intersects(point)) {
+      return null;
     }
 
     // console.log('where is insertion!', this.points, point.id);
     let mapLen = Object.keys(this.points).length;
-    //console.log("ready", mapLen);
     if (mapLen < QuadTree.capacity) {
-      this.points[point.id] = point;
-      // console.log('inseted point!', this.points, point.id);
-      return true;
-    } else {
-      // then if this id divided, points won't register and i'll have to push the points anyways?
-      if (!this.divided) {
-        this.subdivide();
-      }
-      if (this.tr && this.tr.insert(point)) {
-        return true;
-      } else if (this.tl && this.tl.insert(point)) {
-        return true;
-      } else if (this.br && this.br.insert(point)) {
-        return true;
-      } else if (this.bl) return (this.bl.insert(point));
+      let quadRect = new QuadPoint(point.x, point.y, point.width, point.height);
+      this.points[quadRect.getId()] = quadRect;
+      // console.log('inserted point!', this.points, point.id);
+      return quadRect;
     }
-    return false;
+    // then if this id divided, points won't register and i'll have to push the points anyways?
+    if (!this.divided) {
+      this.subdivide();
+    }
+    if (this.tr) {
+      let trRect = (this.tr.insert(point));
+      if (trRect) {
+        return trRect;
+      }
+    }
+    if (this.tl) {
+      let tlRect = this.tl.insert(point);
+      if (tlRect) {
+        return tlRect;
+      }
+    }
+    if (this.br) {
+      let brRect = this.br.insert(point);
+      if (brRect) {
+        return brRect;
+      }
+    }
+    if (this.bl) {
+      return (this.bl.insert(point));
+    }
+    return null;
   }
 
   show(ctx: CanvasRenderingContext2D) {
@@ -182,5 +236,6 @@ class QuadTree {
 
 export {
   Point,
-  QuadTree
+  QuadTree,
+  QuadPoint
 }

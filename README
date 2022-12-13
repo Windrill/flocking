@@ -1,4 +1,3 @@
-
 Dependencies:
 (don't need nodejs, just use npm)
 npm install @types/three
@@ -13,10 +12,55 @@ Vite & Three.js
 2. i thought vite could not load threejs at all from typescript/javascript.
   - actually, it was because i didn't include three's library. i guess for typescripti 'll have to use common.js
 
+--------------------------------------------------------------
+Testing Setup:
+npm i --save-dev @types/jest
+npm i --save-dev ts-jest
+npm i --save-dev jest
 
-For Testing:
-= trying to use node to run typescript
+To make sure 'npm test' command works:
+Add to package.json:
+  "scripts": {
+    "test": "jest"
+  }
+
+To setup jest with typescript:
+In jest.config.js, have:
+  /** @type {import('ts-jest').JestConfigWithTsJest} */
+  module.exports = {
+    preset: 'ts-jest',
+    testEnvironment: 'node',
+  };
+
+To enable jest's static type resolution:
+Add in tsconfig.json (in "compilerOptions"):
+  "types": [..., "@types/jest"]
+
+--------------------------------------------------------------
+
+Was trying to get individual items run?
 npm install -g ts-node typescript '@types/node'
+//npx ts-node ./src/JLibrary/tests/circle_test.ts
+// wrap with: normalize
+
+
+Function signature:
+func: (arg0: any) => any
+
+Types:
+Type definition for function:
+func :(_:number[])=>void
+
+
+Math.js
+import * as math from "mathjs";
+
+TS2769: No overload matches this call. Overload 1 of 2, '(format?: "sparse" | "dense" | undefined): Matrix', gave the following error.
+Argument of type 'number | Matrix | MathArray' is not assignable to parameter of type '"sparse" | "dense" | undefined'.
+Type 'number' is not assignable to type '"sparse" | "dense" | undefined'.
+Overload 2 of 2, '(data: MathCollection | string[], format?: "sparse" | "dense" | undefined, dataType?: string | undefined): Matrix', gave the following error.
+Argument of type 'number | Matrix | MathArray' is not assignable to parameter of type 'MathCollection | string[]'.
+Type 'number' is not assignable to type 'MathCollection | string[]'.
 
 Vite:
 > Next Generation Frontend Tooling

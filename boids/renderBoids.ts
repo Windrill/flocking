@@ -30,7 +30,7 @@ let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 let mainInstance: MainClass;
 let canvasContext: CanvasContext;
 
-function BoidMovementControl(mainC : MainClass, localWorldCanvasContext : CanvasContext, b: Boid) {
+function BoidMovementControl(mainC : MainClass, localWorldCanvasContext : CanvasContext, _b: Boid) {
   console.log(mainC.flock);
   let controlledBoid = mainC.flock[0];
   let boidStopLambda = (e : KeyboardEvent) => {
@@ -52,17 +52,18 @@ class MainClass {
 
   flock: Boid[] = [];
   pause = true;
-  renderContext: R_Canvas;
+  rCanvas: R_Canvas;
   world: World;
 
   constructor(world: World, canvasContext: CanvasContext) {
     this.world = world;
     this.initialization = true;
-    this.renderContext = new R_Canvas(canvasContext);
+    this.rCanvas = new R_Canvas(canvasContext);
   }
 
   startClicked() {
-    console.log("Start clicked;");
+    console.log("Start clicked;" +
+      "Click to pause rendering, press s to pause boid movement");
     let numBoids = 1;
     if (this.initialization) {
       // Render Boids
@@ -99,9 +100,9 @@ class MainClass {
     // let fps = 1000 / (thisLoop - lastLoop);
     // lastLoop = thisLoop;
     // console.log("Rendering at: ", fps);
-    this.renderContext.styles.strokeStyle = "#167a7a";
-    this.renderContext.styles.fillStyle = "#167a7a";
-    this.renderContext.drawBoard();
+    this.rCanvas.styles.strokeStyle = "#167a7a";
+    this.rCanvas.styles.fillStyle = "#167a7a";
+    this.rCanvas.drawBoard();
     let crange = new D_Rect(
       mouseX - 40, mouseY - 40, 80, 80);
     if (ctx) {
@@ -119,18 +120,19 @@ class MainClass {
     }*/
 
     ForEachArrayItem((f: Boid) => {
-      f.flocking();
+      f.flocking(this.rCanvas);
       f.draw();
       f.update();
     }, this.flock);
 
     ForEachArrayItem((b: Boundary) => {
-      b.draw(this.renderContext);
+      b.draw(this.rCanvas);
     }, this.world.boundaries);
   }
 } // End mainClass class
 
 if (ctx) {
+  Algebra.OrthoNormal();
   // Map assets
   let b1 = new Boundary(new THREE.Vector2(0, 0), new THREE.Vector2(0, canvas.height));
   b1.name = ("Left");
@@ -157,6 +159,7 @@ if (ctx) {
   // Can you swap out contexts....for example set the event listener as a window. Or have the Listener class have
   // a copy of the target element.
   let mouseBoundary = new Boundary(new THREE.Vector2(0, 0), new THREE.Vector2(0, 0));
+  mouseBoundary.name = "mouseBoundary";
 
   // ProjectP is for based on new thing. this is based on 0
   let setBoundary = (b: Boundary) => {
@@ -187,7 +190,7 @@ if (ctx) {
     setBoundary(mouseBoundary);
   })
 
-  let thisScrollLambda = (e) => {
+  let thisScrollLambda = (e : WheelEvent) => {
     let scrolled = e.deltaY;
     let constant = 0.003;
 

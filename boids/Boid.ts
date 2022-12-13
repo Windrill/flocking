@@ -1,7 +1,7 @@
 import {Point} from "./QuadTree";
 import * as THREE from 'three';
 import {Vector2} from 'three';
-import {Algebra, WRAP} from "../JLibrary/functions/algebra";
+import {Algebra, RAD2DEG, WRAP} from "../JLibrary/functions/algebra";
 import {Accumulator, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {
   BackendType,
@@ -9,32 +9,18 @@ import {
   D_Rect,
   MidPointToBottomLeft,
   MidPointToTopLeft, MidPointToTopLeftBoxTuple,
-  NormalizeX
+  NormalizeX, Quackable, QuackingV2
 } from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {CLAMP_VEC2} from "../JLibrary/r_three";
 import {castTrace, World} from "./World";
-import {Vec2Ray} from "../JLibrary/geometry/Conversions";
+import {MathTypeToNumber, Vec2Ray} from "../JLibrary/geometry/Conversions";
 import {Boundary} from "../JLibrary/geometry/Boundary";
 import {CRay} from "../JLibrary/geometry/CRay";
+import {MathType, multiply} from "mathjs";
+import {NormalizeWithinPeriod, RadDiff2D} from "../JLibrary/angle/normalization";
 
 const ORG = new THREE.Vector2(0, 0);
-// how to pass more shared context to other modules?
-let canvas = document.getElementsByTagName("canvas")[0];
-let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
-
-// Difference between boids and renderBoids?
-let regularCanvas: R_Canvas;
-if (ctx) {
-  let canvasContext: CanvasContext = {
-    ctx: ctx,
-    canvasSize: {W: canvas.width, H: canvas.height},
-    element: canvas, // body?
-    backendType: BackendType.HTML5Backend
-  }
-  regularCanvas = new R_Canvas(canvasContext);
-}
-
 let boidColors = [
   "#d95252",
   "#47af4f",
@@ -54,7 +40,7 @@ class Boid extends Point {
   private alignValue: number;
   private forceResult: Vector2[];
 
-  public paused : boolean;
+  public paused: boolean;
   // If is leader, ????
   // if you follow then maybe primarily follow leader, also give a limit to steering <--naturally by friction so just add friction then
   private leader: Boid | undefined;
@@ -90,8 +76,8 @@ class Boid extends Point {
 
     // automatically assume it's 0, 0, width then height
     this.randomRange = randomRange;
-    this.velocity = new THREE.Vector2(Math.random() * 10 - 5, Math.random() * 10 - 5);
-    // this.velocity = new THREE.Vector2(Math.random() * 15 - 7.5, Math.random() * 15 - 7.5);
+    let velRange = 10;
+    this.velocity = new THREE.Vector2(Math.random() * velRange - (velRange/2), Math.random() * velRange - (velRange/2));
     this.acceleration = new THREE.Vector2(0, 0);
 
     // mark to draw/trace values of this boid
@@ -117,7 +103,7 @@ class Boid extends Point {
     this.separateValue = parseData.separHtml.value;
   }
 
-  flocking() {
+  flocking(rCanvas: R_Canvas) {
     let forceResult = this.threeForces();
 
     let alignment = forceResult[0];
@@ -137,7 +123,7 @@ class Boid extends Point {
     }, forceResult);
     let normalizedMagnitudes = NormalizeX(...arrowMagnitudes);
     for (let i = 0; i < 3; i++) {
-      regularCanvas.carrow(this.pos, forceResult[i], 40 * normalizedMagnitudes[i],
+      rCanvas.carrow(this.pos, forceResult[i], 40 * normalizedMagnitudes[i],
         {fillStyle: boidColors[i], debug: false, lineWidth: 2}
       );
     }
@@ -147,24 +133,114 @@ class Boid extends Point {
     this.acceleration.add(separation);
     this.acceleration.add(cohesion);
 
-    let direction = (this.acceleration.clone()).add(this.velocity);
+    let direction: THREE.Vector2 = (this.acceleration.clone()).add(this.velocity);
     let traceRay: CRay = Vec2Ray(this.pos, this.pos.clone().add(direction));
-
+    let xx = 0;//offset for texrt
     ForEachArrayItem((b: Boundary) => {
       let traceDone = castTrace(traceRay, b);
       if (traceDone[1]) {
-        let directionVector = traceDone[1].clone().sub(this.pos);
-        // (this.pos.clone().sub(traceDone).length())
-        regularCanvas.carrow(this.pos, directionVector, (directionVector).length(),
-          {fillStyle: "#31d08e", debug: false, lineWidth: 4});
+        if (b.name != "mouseBoundary") {
+          return;
+        }
+        let border = traceDone[0];
+        let intersection = traceDone[1];
+        let directionVector = intersection.clone().sub(this.pos);
+        // let directionVector = traceDone[1].clone().sub(this.pos);
+        // let intersection = this.pos.clone().add(directionVector).clone();// this == tRACEDONE
+
+        let green = {fillStyle: "#31d08e", debug: false, lineWidth: 4};
+        let green2 = {fillStyle: "#487a65", debug: false, lineWidth: 3};
+        rCanvas.carrow(this.pos, directionVector, (directionVector).length(), green);
+        let redThick = {fillStyle: "#d07931", debug: false, lineWidth: 19};
+        let red = {fillStyle: "#d07931", debug: false, lineWidth: 7};
+        let purple = {fillStyle: "#6c40d5", debug: false, lineWidth: 5};
+
+        rCanvas.write("Intersect", traceDone[1].x, traceDone[1].y);
+        let aAng = RAD2DEG * Algebra.GetRad(border.points[0].clone().sub(intersection)); //
+        // I am thinking since these are 2 colliding forces, they ought to be 180 degrees apart.
+        // Hence when this points to bottom left, the degrees are negative (-160) while towards the
+        // same direction
+        // borders are positive (+20)
+        let bAng = RAD2DEG * Algebra.GetRad(directionVector);
+
+        rCanvas.cPlate(intersection, directionVector, 25);
+        rCanvas.clineo(intersection, border.points[0], redThick);
+        rCanvas.clineo(intersection, this.pos, red);
+
+        xx += 15;
+
+        let d1 = NormalizeWithinPeriod(bAng-aAng, 0, 360);
+        rCanvas.write(
+          `BorderVec: ${aAng.toFixed(0)} `+
+          `DirectionVec:${bAng.toFixed(0)} `+
+          `Diff:${d1.toFixed(0)} D`, this.pos.x + 10, this.pos.y + 10 + xx);
+
+        console.log(d1>180?360-d1:d1);
+          let bottomFlap = Algebra.ProjectP(directionVector, 50, aAng - bAng);
+          rCanvas.carrow(this.pos.clone().add(directionVector), bottomFlap, 50, green2);
+
+        { // Same angle as boundary's angle at ray.
+          //aAng - bAng
+          let bottomFlap = Algebra.ProjectP(directionVector, 50,
+            aAng - bAng
+            -1* NormalizeWithinPeriod(180-d1, 0, 360)
+        );
+          rCanvas.carrow(this.pos.clone().add(directionVector), bottomFlap, 50, red);
+        }
+        {
+          let leftover = aAng - bAng;
+          if (leftover > 180) leftover -= 180;
+          // console.log(leftover);
+
+          let bottomFlap = Algebra.ProjectP(directionVector, 50,
+            aAng - bAng+
+          // will projectp work with negative angles...
+            1*NormalizeWithinPeriod(180 -d1,0,360)
+          // NormalizeWithinPeriod(-d1, 0, 360)
+          );
+          // console.log(NormalizeWithinPeriod(d1 , 0,360), NormalizeWithinPeriod(d1, 0, 360));
+          rCanvas.carrow(this.pos.clone().add(directionVector), bottomFlap, 50, purple);
+        }
       }
     }, this.world.boundaries);
 
     // draw bounce-off
-    // let direction =
-    // let bottomFlap = Algebra.ProjectP(direction, arrowFlapFromTrunk, -40);
-    // From, To typical.
-    // maybe i want a boundary to have listener component attached. how???? to link them. returns the component when you set it.
+    let bottomFlap = Algebra.ProjectP(direction, 50, -90);
+    let diffX = this.pos.x - bottomFlap.x;
+    let diffY = this.pos.y - bottomFlap.y;
+
+    rCanvas.cline(this.pos.x, this.pos.y, this.pos.x - bottomFlap.x, this.pos.y - bottomFlap.y, //Args[0]
+      {fillStyle: "#126cb4", debug: false, lineWidth: 3}
+    );
+    // let rad = Algebra.GetRad({x: diffX, y: diffY});
+    let rad = Algebra.GetRad(traceRay.direction);
+
+    // now draw this .... i guess its non skewing, and resize...
+    let rotateFrame = [
+      [Math.cos(rad), -Math.sin(rad), this.pos.x],
+      [Math.sin(rad), Math.cos(rad), this.pos.y],
+      [1, 1, 1]
+    ];
+    let leastX = -200;
+    let leastY = -130;
+    let mostY = 130;
+    let l1 = multiply(rotateFrame, [leastX, leastY, 1]).flat();
+    let l2 = multiply(rotateFrame, [200, leastY, 1]).flat();
+    let l3 = multiply(rotateFrame, [200, mostY, 1]).flat();
+    let l4 = multiply(rotateFrame, [leastX, mostY, 1]).flat();
+    // let l1 = multiply(transpose([-50,0,1]), rotateFrame);
+    // let l2 = multiply(transpose([200,0,1]), rotateFrame);
+    // console.log(l1, l2);
+    // rCanvas.cline(l1[0], l1[1], l1[0] - l2[0], l1[1] - l2[1], //Args[0]
+    let boundaryLineStyle = {fillStyle: "#126cb4", debug: false, lineWidth: 3};
+    let p1 = {x: MathTypeToNumber(l1[0]), y: MathTypeToNumber(l1[1])};
+    let p2 = {x: MathTypeToNumber(l2[0]), y: MathTypeToNumber(l2[1])};
+    let p3 = {x: MathTypeToNumber(l3[0]), y: MathTypeToNumber(l3[1])};
+    let p4 = {x: MathTypeToNumber(l4[0]), y: MathTypeToNumber(l4[1])};
+    rCanvas.clineo(p1, p2, boundaryLineStyle);
+    rCanvas.clineo(p2, p3, boundaryLineStyle);
+    rCanvas.clineo(p4, p3, boundaryLineStyle);
+    rCanvas.clineo(p1, p4, boundaryLineStyle);
   }
 
   // avoidance
@@ -178,7 +254,6 @@ class Boid extends Point {
     // if linetrace forwards finds an avoidance obstacle, traverse towards the reflected angle towards that
     // 180 - acos(dot(obstacle, direction)) is the angle, instead of moving forward move your magnitude towards turning direction over time?
     // can you do instantaneous velocity calculation?
-    // C_DOT
   }
 
   findLeader() {
