@@ -2,7 +2,7 @@ import {R_Canvas} from "../JLibrary/canvas/canvas";
 import * as THREE from 'three'
 import {Listener} from "../JLibrary/canvas/canvas_listener";
 import {ForEachArrayIndex, ForEachArrayItem} from "../JLibrary/functions/functional";
-import {QuackingV2} from "../JLibrary/functions/structures";
+import {BackendType, CanvasContext, QuackingV2} from "../JLibrary/functions/structures";
 import {ColorConversions} from "../JLibrary/tools/color_conversions";
 import {PlayerParticle} from "../JLibrary/geometry/PlayerParticle";
 import {CLAMP} from "../JLibrary/functions/algebra";
@@ -10,6 +10,7 @@ import {CLAMP} from "../JLibrary/functions/algebra";
 import * as dat from 'dat.gui';
 import {Drawable} from "../JLibrary/geometry/CRay";
 import {Boundary} from "../JLibrary/geometry/Boundary";
+
 const gui = new dat.GUI();
 
 let canvas = document.getElementsByTagName("canvas")[0];
@@ -53,8 +54,14 @@ function drawPlayerView(castDistance: number[]) {
 }
 
 if (ctx) {
-  renderContext = new R_Canvas(ctx);
-  listener = new Listener(ctx, canvas);
+  let canvasContext : CanvasContext = {
+    ctx: ctx,
+    canvasSize: {W: 500, H: 500},
+    element: canvas,
+    backendType: BackendType.HTML5Backend
+  };
+  renderContext = new R_Canvas(canvasContext);
+  listener = new Listener(canvasContext);
 
   cleanCanvas(ctx);
 
