@@ -1,4 +1,4 @@
-import {Point} from "./QuadTree";
+import {Point, QuadPoint} from "./QuadTree";
 import * as THREE from 'three';
 import {Vector2} from 'three';
 import {Algebra, RAD2DEG, WRAP} from "../JLibrary/functions/algebra";
@@ -28,17 +28,19 @@ let boidColors = [
   "#f89c34"
 ];
 
-
-class Boid extends Point {
+// QuadPoint should indicate this has a positional aspect that is queryable.
+class Boid extends QuadPoint {
+  // These are, pure vectors
   private acceleration: THREE.Vector2;
   private velocity: THREE.Vector2;
+  private forceResult: Vector2[];
+
   private maxForce: number;
   private maxSpeed: number;
   private randomRange: number[];
   private separateValue: number;
   private cohesionValue: number;
   private alignValue: number;
-  private forceResult: Vector2[];
 
   public paused: boolean;
   // If is leader, ????
@@ -56,6 +58,13 @@ class Boid extends Point {
   static setCanvas(c: CanvasRenderingContext2D) {
     Boid.ctx = c;
   }
+
+
+  // boolean set manually so you can trace the path of a boid running around in canvas
+  // when your mouse rect hovers over, show green
+  private mark : boolean;
+  public markGreen : boolean;
+  private markLogic : ()=> {fillStyle: string};
 
   // can this boid treat 1 and array the same...
   constructor(id: number, world: World, randomRange: number[]) {
@@ -86,12 +95,18 @@ class Boid extends Point {
     this.markGreen = false;
 
     this.paused = false;
+    this.markLogic = () => {
+      if (this.markGreen) {
+        return {fillStyle: "#35d994"}
+      }
+      return {fillStyle: "#33ccff"}
+    }
   }
 
   // Translate into walls
   wrapPosition() {
-    this.pos.x = WRAP(this.pos.x, 0, this.randomRange[0]);
-    this.pos.y = WRAP(this.pos.y, 0, this.randomRange[1]);
+    this.pos.x = WRAP(this.getLocation().x, 0, this.randomRange[0]);
+    this.pos.y = WRAP(this.getLocation().y, 0, this.randomRange[1]);
   }
 
   setSpeedRestraints(parseData: any) {
@@ -123,7 +138,7 @@ class Boid extends Point {
     }, forceResult);
     let normalizedMagnitudes = NormalizeX(...arrowMagnitudes);
     for (let i = 0; i < 3; i++) {
-      rCanvas.carrow(this.pos, forceResult[i], 40 * normalizedMagnitudes[i],
+      rCanvas.carrow(this.getLocation(), forceResult[i], 40 * normalizedMagnitudes[i],
         {fillStyle: boidColors[i], debug: false, lineWidth: 2}
       );
     }
@@ -134,82 +149,85 @@ class Boid extends Point {
     this.acceleration.add(cohesion);
 
     let direction: THREE.Vector2 = (this.acceleration.clone()).add(this.velocity);
-    let traceRay: CRay = Vec2Ray(this.pos, this.pos.clone().add(direction));
-    let xx = 0;//offset for texrt
+    let traceRay: CRay = Vec2Ray(this.getThreeVec(), this.getThreeVec().clone().add(direction));
+    let testOffset = 0;//offset for text
     ForEachArrayItem((b: Boundary) => {
-      let traceDone = castTrace(traceRay, b);
-      if (traceDone[1]) {
-        if (b.name != "mouseBoundary") {
-          return;
-        }
-        let border = traceDone[0];
-        let intersection = traceDone[1];
-        let directionVector = intersection.clone().sub(this.pos);
-        // let directionVector = traceDone[1].clone().sub(this.pos);
-        // let intersection = this.pos.clone().add(directionVector).clone();// this == tRACEDONE
+      // Temporary: if not hitting mouse, don't draw yet.
+      if (b.name != "mouseBoundary") {
+        return;
+      }
+      let rayToBoundary = castTrace(traceRay, b);
+      if (!rayToBoundary[1]) {
+        return;
+      }
+      let border = rayToBoundary[0];
+      let intersection = rayToBoundary[1];
+      let directionVector = intersection.sub(this.getThreeVec());
+      // let directionVector = rayToBoundary[1].clone().sub(this.getLocation());
+      // let intersection = this.getLocation().clone().add(directionVector).clone();// this == TRACEDONE
 
-        let green = {fillStyle: "#31d08e", debug: false, lineWidth: 4};
-        let green2 = {fillStyle: "#487a65", debug: false, lineWidth: 3};
-        rCanvas.carrow(this.pos, directionVector, (directionVector).length(), green);
-        let redThick = {fillStyle: "#d07931", debug: false, lineWidth: 19};
-        let red = {fillStyle: "#d07931", debug: false, lineWidth: 7};
-        let purple = {fillStyle: "#6c40d5", debug: false, lineWidth: 5};
+      let brightGreen = {fillStyle: "#31d08e", debug: false, lineWidth: 4};
+      let darkGreen = {fillStyle: "#365c4c", debug: false, lineWidth: 3};
+      let redThick = {fillStyle: "#d03131", debug: false, lineWidth: 19};
+      let orange = {fillStyle: "#d07931", debug: false, lineWidth: 7};
+      let purple = {fillStyle: "#6c40d5", debug: false, lineWidth: 5};
 
-        rCanvas.write("Intersect", traceDone[1].x, traceDone[1].y);
-        let aAng = RAD2DEG * Algebra.GetRad(border.points[0].clone().sub(intersection)); //
-        // I am thinking since these are 2 colliding forces, they ought to be 180 degrees apart.
-        // Hence when this points to bottom left, the degrees are negative (-160) while towards the
-        // same direction
-        // borders are positive (+20)
-        let bAng = RAD2DEG * Algebra.GetRad(directionVector);
+      rCanvas.carrow(this.getLocation(), directionVector, (directionVector).length(), brightGreen);
 
-        rCanvas.cPlate(intersection, directionVector, 25);
-        rCanvas.clineo(intersection, border.points[0], redThick);
-        rCanvas.clineo(intersection, this.pos, red);
+      rCanvas.write("Intersect", rayToBoundary[1].x, rayToBoundary[1].y);
+      let aAng = RAD2DEG * Algebra.GetRad(border.points[0].clone().sub(intersection)); //
+      // I am thinking since these are 2 colliding forces, they ought to be 180 degrees apart.
+      // Hence when this points to bottom left, the degrees are negative (-160) while towards the
 
-        xx += 15;
+      // borders are positive (+20)
+      let bAng = RAD2DEG * Algebra.GetRad(directionVector);
 
-        let d1 = NormalizeWithinPeriod(bAng-aAng, 0, 360);
-        rCanvas.write(
-          `BorderVec: ${aAng.toFixed(0)} `+
-          `DirectionVec:${bAng.toFixed(0)} `+
-          `Diff:${d1.toFixed(0)} D`, this.pos.x + 10, this.pos.y + 10 + xx);
+      rCanvas.cPlate(intersection, directionVector, 25);
+      rCanvas.clineo(intersection, border.points[0], redThick);
+      rCanvas.clineo(intersection, this.getLocation(), orange);
 
-        console.log(d1>180?360-d1:d1);
-          let bottomFlap = Algebra.ProjectP(directionVector, 50, aAng - bAng);
-          rCanvas.carrow(this.pos.clone().add(directionVector), bottomFlap, 50, green2);
+      testOffset += 15;
+      let d1 = NormalizeWithinPeriod(bAng-aAng, 0, 360);
+      rCanvas.write(
+        `BorderVec: ${aAng.toFixed(0)} `+
+        `DirectionVec:${bAng.toFixed(0)} `+
+        `Diff:${d1.toFixed(0)} D`, this.getLocation().x + 10, this.getLocation().y + 10 + testOffset);
 
-        { // Same angle as boundary's angle at ray.
-          //aAng - bAng
-          let bottomFlap = Algebra.ProjectP(directionVector, 50,
-            aAng - bAng
-            -1* NormalizeWithinPeriod(180-d1, 0, 360)
+      console.log(d1>180?360-d1:d1);
+        let bottomFlap = Algebra.ProjectP(directionVector, 50, aAng - bAng);
+        rCanvas.carrow(this.getThreeVec().clone().add(directionVector), bottomFlap, 50, darkGreen);
+
+      { // Same angle as boundary's angle at ray.
+        //aAng - bAng
+        let bottomFlap = Algebra.ProjectP(directionVector, 50,
+          aAng - bAng
+          -1 * NormalizeWithinPeriod(180-d1, 0, 360)
+      );
+        rCanvas.carrow(this.getThreeVec().clone().add(directionVector), bottomFlap, 50, orange);
+      }
+      {
+        let leftover = aAng - bAng;
+        if (leftover > 180) leftover -= 180;
+        // console.log(leftover);
+
+        let bottomFlap = Algebra.ProjectP(directionVector, 50,
+          aAng - bAng +
+        // will projectp work with negative angles...
+          1 * NormalizeWithinPeriod(180 -d1,0,360)
+        // NormalizeWithinPeriod(-d1, 0, 360)
         );
-          rCanvas.carrow(this.pos.clone().add(directionVector), bottomFlap, 50, red);
-        }
-        {
-          let leftover = aAng - bAng;
-          if (leftover > 180) leftover -= 180;
-          // console.log(leftover);
-
-          let bottomFlap = Algebra.ProjectP(directionVector, 50,
-            aAng - bAng+
-          // will projectp work with negative angles...
-            1*NormalizeWithinPeriod(180 -d1,0,360)
-          // NormalizeWithinPeriod(-d1, 0, 360)
-          );
-          // console.log(NormalizeWithinPeriod(d1 , 0,360), NormalizeWithinPeriod(d1, 0, 360));
-          rCanvas.carrow(this.pos.clone().add(directionVector), bottomFlap, 50, purple);
-        }
+        // console.log(NormalizeWithinPeriod(d1 , 0,360), NormalizeWithinPeriod(d1, 0, 360));
+        rCanvas.carrow(this.getThreeVec().clone().add(directionVector), bottomFlap, 50, purple);
       }
     }, this.world.boundaries);
 
     // draw bounce-off
     let bottomFlap = Algebra.ProjectP(direction, 50, -90);
-    let diffX = this.pos.x - bottomFlap.x;
-    let diffY = this.pos.y - bottomFlap.y;
+    let diffX = this.getLocation().x - bottomFlap.x;
+    let diffY = this.getLocation().y - bottomFlap.y;
 
-    rCanvas.cline(this.pos.x, this.pos.y, this.pos.x - bottomFlap.x, this.pos.y - bottomFlap.y, //Args[0]
+    rCanvas.cline(this.getLocation().x, this.getLocation().y, this.getLocation().x - bottomFlap.x, this.getLocation().y - bottomFlap.y,
+      //Args[0]
       {fillStyle: "#126cb4", debug: false, lineWidth: 3}
     );
     // let rad = Algebra.GetRad({x: diffX, y: diffY});
@@ -217,8 +235,8 @@ class Boid extends Point {
 
     // now draw this .... i guess its non skewing, and resize...
     let rotateFrame = [
-      [Math.cos(rad), -Math.sin(rad), this.pos.x],
-      [Math.sin(rad), Math.cos(rad), this.pos.y],
+      [Math.cos(rad), -Math.sin(rad), this.getLocation().x],
+      [Math.sin(rad), Math.cos(rad), this.getLocation().y],
       [1, 1, 1]
     ];
     let leastX = -200;
@@ -259,7 +277,7 @@ class Boid extends Point {
   findLeader() {
     // first: use existing leader
     // if (this.leader) {
-    //   getAngle(this.leader.pos, this.pos)
+    //   getAngle(this.leader.pos, this.getLocation())
     // }
     // second: find natural leader
 
@@ -267,9 +285,9 @@ class Boid extends Point {
     // frontal steer force?
     let dist = 70;
 
-    let queryResult: Point[] = [];
+    let queryResult: QuadPoint[] = [];
 
-    let rect = new D_Rect(...MidPointToBottomLeft(this.pos.x, this.pos.y, dist, dist));
+    let rect = new D_Rect(...MidPointToBottomLeft(this.getLocation().x, this.getLocation().y, dist, dist));
     this.world.qt.query(rect, queryResult);
     let haveLeader = false;
     if (queryResult.length > 0) {
@@ -282,26 +300,32 @@ class Boid extends Point {
 
   threeForces(): Vector2[] {
     // Alignment, Cohesion, Separation
-    let perception = [180, 110, 55];
-    let forces: Point[][] = []; // Boid
-    let steering = [];
+    let perceptionRadius = [180, 110, 55];
+    // These, are also forces.
+    let forces: THREE.Vector2[][] = []; // Boid
+    let steering : THREE.Vector2[] = [];
 
     // Add perception boxes, query results, and initiate steer direction
-    for (let i = 0; i < perception.length; i++) {
-      let rect = new D_Rect(...MidPointToTopLeftBoxTuple(this.pos.x, this.pos.y, perception[i], perception[i]));
+    for (let i = 0; i < perceptionRadius.length; i++) {
+      let rect = new D_Rect(...MidPointToTopLeftBoxTuple(this.getLocation().x, this.getLocation().y, perceptionRadius[i], perceptionRadius[i]));
       this.markShow();
-      let queryResult: Point[] = [];
+      let queryResult: QuadPoint[] = [];
       this.world.qt.query((rect), queryResult);
-      forces.push(queryResult);
+
+      let appliedForces : THREE.Vector2[] = [];
+      ForEachArrayItem((query : QuadPoint) => {
+        appliedForces.push(query.getThreeVec());
+      }, queryResult);
+      forces.push(appliedForces);
       steering.push((new THREE.Vector2(0, 0)));
     }
 
-    let addVelocity = (acc: THREE.Vector2, item: Boid) => acc.add(item.velocity);
-    let addLocation = (acc: THREE.Vector2, item: Boid) => acc.add(item.pos);
-
+    // let addVelocity = (acc: THREE.Vector2, item: Boid) => acc.add(item.velocity);
+    // let addLocation = (acc: THREE.Vector2, item: Boid) => acc.add(item.getThreeVec());
+    let addForces = (a : THREE.Vector2, b: THREE.Vector2) => a.add(b);
     // Calculate steer direction for alignment
     if (forces[0].length > 1) {
-      steering[0] = Accumulator(addVelocity, forces[0], (new THREE.Vector2(0, 0)));
+      steering[0] = Accumulator(addForces, forces[0], (new THREE.Vector2(0, 0)));
       CLAMP_VEC2(steering[0], this.maxForce);
 
       steering[0].divideScalar((forces[0].length));
@@ -310,10 +334,9 @@ class Boid extends Point {
 
     // go toward center of flock!
     if (forces[1].length > 1) {
-      let cohesiveForce = Accumulator(addLocation, forces[1], (new THREE.Vector2(0, 0)));
-
+      let cohesiveForce = Accumulator(addForces, forces[1], (new THREE.Vector2(0, 0)));
       steering[1] = cohesiveForce.divideScalar(forces[1].length);
-      steering[1].sub(this.pos);
+      steering[1].sub(this.getThreeVec());
       CLAMP_VEC2(steering[1], this.maxForce);
     }
     // needs to be: strength inversely proportional to length???, cannot be linear, cannot be too strong
@@ -322,10 +345,10 @@ class Boid extends Point {
     // Calculate steer direction for separation
     if (forces[2].length > 1) {
       // the force should be facing away
-      steering[2] = Accumulator((acc: THREE.Vector2, item: Boid) => {
+      //item: Boid
+      steering[2] = Accumulator((acc: THREE.Vector2, item : THREE.Vector2) => {
         // if too close, force is bigger: 5 / 1
-        let separationForce = this.pos.clone().sub(item.pos);
-        // console.log(separationForce, separationForce.length());
+        let separationForce = this.getThreeVec().clone().sub(item);
         // 30: length of 25 = very small force
         if (separationForce.length() != 0) {
           return acc.add(
@@ -350,7 +373,9 @@ class Boid extends Point {
     if (this.paused) {
       return;
     }
-    this.pos.add(this.velocity);
+    this.pos.x += this.velocity.x;
+    this.pos.y += this.velocity.y;
+
     if (this.mark) {
       //console.log('this.vel', this.vel);
       //console.log('this.acc', this.acc);
@@ -363,14 +388,14 @@ class Boid extends Point {
     CLAMP_VEC2(this.velocity, this.maxSpeed);
     this.wrapPosition();
     this.acceleration.set(0, 0);
-    this.world.qt.remove(this);
+    this.world.qt.removeAll(this);
     this.world.qt.insert(this);
   }
 
   markShow() {
     if (this.mark) {
       let rect = new D_Rect(
-        this.pos.x - 20, this.pos.y - 20, 80, 80);
+        this.getLocation().x - 20, this.getLocation().y - 20, 80, 80);
       rect.show(Boid.ctx);
     }
   }
@@ -378,10 +403,10 @@ class Boid extends Point {
   markDraw() {
     if (this.mark) {
       // markShow()
-      Boid.ctx.fillText(`${(this.forceResult[0].x).toFixed(0)},${(this.forceResult[0].x).toFixed(0)}`, this.pos.x + 15, this.pos.y + 25);
-      Boid.ctx.fillText(`${(this.forceResult[1].x).toFixed(0)},${(this.forceResult[1].x).toFixed(0)}`, this.pos.x + 15, this.pos.y + 35);
-      Boid.ctx.fillText(`${(this.forceResult[2].x).toFixed(0)},${(this.forceResult[2].x).toFixed(0)}`, this.pos.x + 15, this.pos.y + 45);
-      Boid.ctx.fillText(`${((this.pos.x).toFixed(0))},${(this.pos.y).toFixed(0)}`, this.pos.x + 15, this.pos.y + 15);
+      Boid.ctx.fillText(`${(this.forceResult[0].x).toFixed(0)},${(this.forceResult[0].x).toFixed(0)}`, this.getLocation().x + 15, this.getLocation().y + 25);
+      Boid.ctx.fillText(`${(this.forceResult[1].x).toFixed(0)},${(this.forceResult[1].x).toFixed(0)}`, this.getLocation().x + 15, this.getLocation().y + 35);
+      Boid.ctx.fillText(`${(this.forceResult[2].x).toFixed(0)},${(this.forceResult[2].x).toFixed(0)}`, this.getLocation().x + 15, this.getLocation().y + 45);
+      Boid.ctx.fillText(`${((this.getLocation().x).toFixed(0))},${(this.getLocation().y).toFixed(0)}`, this.getLocation().x + 15, this.getLocation().y + 15);
       Boid.ctx.fillStyle = "#4c2df7";
     } else if (this.markGreen) {
       Boid.ctx.fillStyle = "#35d994";
@@ -393,7 +418,7 @@ class Boid extends Point {
     Boid.ctx.fillStyle = "#33ccff";
     this.markDraw();
     Boid.ctx.fillRect(
-      ...MidPointToTopLeftBoxTuple(this.pos.x, this.pos.y, 8, 8)
+      ...MidPointToTopLeftBoxTuple(this.getLocation().x, this.getLocation().y, 8, 8)
     );
   }
 }

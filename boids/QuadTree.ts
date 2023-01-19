@@ -1,14 +1,17 @@
-// import * as THREE from 'three'
-import {D_Rect} from "../JLibrary/functions/structures";
+import * as THREE from 'three'
+import {D_Point, D_Rect} from "../JLibrary/functions/structures";
 import {CObject} from "../JLibrary/geometry/Boundary";
+import {ForEachObjectItem, ForEachObjectKey} from "../JLibrary/functions/functional";
 
 /**
  * QuadPoint: Class with a location that can be a point or range added to a QuadTree
+ *
+ * Supports a point, or a rectangle.
  */
-// This needs to support a location, or a range....
 // I kind of want this to be internally managed but I can't define the boundaries easily so far...
+  // quadpoint vs drect????
 class QuadPoint extends CObject {
-  // I could have x & y the same to create a point.
+  // To represent point from rectangle: have the same point numbers
   pos: D_Rect;
   id: number;
 
@@ -21,45 +24,57 @@ class QuadPoint extends CObject {
   getLocation() {
     return {x: this.pos.x, y: this.pos.y};
   }
+  getThreeVec() {
+    return new THREE.Vector2(this.pos.x, this.pos.y);
+  }
+
+  add(other : QuadPoint) {
+    this.pos.x += other.pos.x;
+    this.pos.y += other.pos.y;
+  }
+
+  sub(other : QuadPoint) {
+    this.pos.x -= other.pos.x;
+    this.pos.y -= other.pos.y;
+  }
 
   getId() {
     return this.id;
   }
 }
+// Conversion, so that 'points' can still have convenient pos indicators.
+function Point2Quad(point : Point) {
+  return new QuadPoint(point.pos.x, point.pos.y);
+}
+
 
 class Point extends CObject {
   id: number; // Boid numbering system for cross reference boids.
-  // pos: THREE.Vector2;
+
+  // Why should you choose D_Rect over THREE.Vector2?
+  // Maybe you want compatibility across QuadTrees.
+  // To let Point fit in a QuadPoint.
+  pos: THREE.Vector2;
   qtp: QuadPoint;
-
-  // boolean set manually so you can trace the path of a boid running around in canvas
-  mark: boolean;
-
-  // when your mouse rect hovers over, show green
-  markGreen: boolean;
 
   constructor(id: number, x: number, y: number) {
     super();
     this.id = id;
     this.qtp = new QuadPoint(x, y);
-    // this.pos = new THREE.Vector2(x, y);
-    this.mark = false;
-    this.markGreen = false;
+    // TODO: replace this with something else
+    this.pos = new THREE.Vector2(x, y);
   }
 
   // add all points: they will all be treated in the same way except pos...???!
-  show(ctx: CanvasRenderingContext2D) {
-    ctx.fillStyle = "#33ccff";
-    if (this.markGreen) {
-      ctx.fillStyle = "#35d994";
-      this.markGreen = false;
-    }
+  show(ctx: CanvasRenderingContext2D, {fillstyle} : {fillstyle : string}) {
+    ctx.fillStyle = fillstyle;
     ctx.fillRect(this.qtp.getLocation().x, this.qtp.getLocation().y, 9, 9);
     //ctx.fillStyle = "#000000";
   }
 }
 
 class QuadTree {
+  public isQuadTree : boolean;
   static capacity = 10;
   private boundary: D_Rect;
   private tr: QuadTree | undefined;
@@ -84,6 +99,7 @@ class QuadTree {
   private id: number;
 
   constructor(boundary: D_Rect) {
+    this.isQuadTree = true;
     // console.log("Quad tree instantiated");
     this.boundary = boundary;
     this.points = {};
@@ -119,9 +135,7 @@ class QuadTree {
     let returns = found ? found : [];
     // console.log("Total points ", this.points);
     if (this.boundary.intersects(bound)) {
-      // console.log("intersecting bounfary", this.id, Object.keys(this.points));
       for (let i of Object.keys(this.points)) {
-        // if (bound.intersects(this.points[Number(i)].pos)) {
         if (bound.intersects(this.points[Number(i)].pos)) {
           returns.push(this.points[Number(i)]);
         } else {
@@ -144,36 +158,37 @@ class QuadTree {
     return returns;
   }
 
-  removeAll(point: D_Rect): boolean {
-    if (!this.boundary.intersects(point)) {
+  removeAll(tempPoint: QuadPoint): boolean {
+    if (!this.boundary.intersects(tempPoint.pos)) {
       return false;
     }
+
     for (let ob of Object.keys(this.points)) {
-      if (Number(ob) == this.id) {
+      if (this.points[Number(ob)].pos.intersects(tempPoint.pos)) {
         delete this.points[Number(ob)];
-        return true;
       }
     }
     if (this.divided) {
       // @ts-ignore
-      return (this.tr.remove(point)) || this.tl.remove(point) || this.br.remove(point) || this.bl.remove(point);
+      return (this.tr.remove(tempPoint)) || this.tl.remove(tempPoint) || this.br.remove(tempPoint) || this.bl.remove(tempPoint);
     }
     return false;
   }
 
-  // Changing to support a range
-  insert(point: D_Rect): QuadPoint | null {
-    if (!this.boundary.intersects(point)) {
+  // Looks like you already created the point, not doing alot of work here.
+  insert(point: QuadPoint): QuadPoint | null {
+    if (!this.boundary.intersects(point.pos)) {
       return null;
     }
 
     // console.log('where is insertion!', this.points, point.id);
     let mapLen = Object.keys(this.points).length;
     if (mapLen < QuadTree.capacity) {
-      let quadRect = new QuadPoint(point.x, point.y, point.width, point.height);
-      this.points[quadRect.getId()] = quadRect;
-      // console.log('inserted point!', this.points, point.id);
-      return quadRect;
+      // let quadRect = new QuadPoint(point.x, point.y, point.width, point.height);
+      this.points[point.id] = point;
+      // this.points[quadRect.getId()] = quadRect;
+      return point;
+      // return quadRect;
     }
     // then if this id divided, points won't register and i'll have to push the points anyways?
     if (!this.divided) {

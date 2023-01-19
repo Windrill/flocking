@@ -64,3 +64,19 @@ Type 'number' is not assignable to type 'MathCollection | string[]'.
 
 Vite:
 > Next Generation Frontend Tooling
+
+
+// interface T {
+//   [index: string]: T
+// }
+
+// seerialization work:
+maybe try https://www.npmjs.com/package/javascript-serializer
+
+
+THREE codes
+// import * as THREE from 'three'
+
+
+
+// can't use 'this' with arrow functions.

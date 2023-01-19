@@ -1,15 +1,13 @@
 import {QuadTree} from "./QuadTree";
 import {Boid} from "./Boid";
-import {BackendType, CanvasContext, D_Point, D_Rect, MidPointToTopLeftBoxTuple} from "../JLibrary/functions/structures";
+import {BackendType, CanvasContext, D_Point, D_Rect} from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
 import {Boundary} from "../JLibrary/geometry/Boundary";
 import * as THREE from 'three';
 import {World} from "./World";
 import {Listener} from "../JLibrary/canvas/canvas_listener";
-import {ForEachArrayItem} from "../JLibrary/functions/functional";
+import {ForEachArrayItem, ForEachObjectItem} from "../JLibrary/functions/functional";
 import {Algebra, RAD2DEG} from "../JLibrary/functions/algebra";
-
-// let lastLoop = new Date();
 
 // Main
 let canvas = document.getElementsByTagName("canvas")[0];
@@ -30,6 +28,7 @@ let ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
 let mainInstance: MainClass;
 let canvasContext: CanvasContext;
 
+// Custom code to link behavior to object.
 function BoidMovementControl(mainC : MainClass, localWorldCanvasContext : CanvasContext, _b: Boid) {
   console.log(mainC.flock);
   let controlledBoid = mainC.flock[0];
@@ -50,7 +49,9 @@ class MainClass {
   initialization: boolean;
   intervalPlaying: any;
 
-  flock: Boid[] = [];
+  flock: {
+    [index: string]: Boid
+  };
   pause = true;
   rCanvas: R_Canvas;
   world: World;
@@ -59,6 +60,7 @@ class MainClass {
     this.world = world;
     this.initialization = true;
     this.rCanvas = new R_Canvas(canvasContext);
+    this.flock = {};
   }
 
   startClicked() {
@@ -73,7 +75,7 @@ class MainClass {
         // nb.mark = true;
         // nb.setSpeedRestraints(parseData);
 
-        this.flock.push(nb);
+        this.flock[nb.getId()] = nb;
         this.world.qt.insert(nb);
 
         // Hacky exposure to different levels of contexts....
@@ -96,10 +98,6 @@ class MainClass {
 
 
   render() {
-    // let thisLoop = new Date();
-    // let fps = 1000 / (thisLoop - lastLoop);
-    // lastLoop = thisLoop;
-    // console.log("Rendering at: ", fps);
     this.rCanvas.styles.strokeStyle = "#167a7a";
     this.rCanvas.styles.fillStyle = "#167a7a";
     this.rCanvas.drawBoard();
@@ -112,14 +110,14 @@ class MainClass {
     //
     let queries = this.world.qt.query(crange, []);
     for (let q of queries) {
-      q.markGreen = true;
+      this.flock[q.getId()].markGreen = true;
     }
     /*
     for(q of flock){
       q.show(ctx);
     }*/
 
-    ForEachArrayItem((f: Boid) => {
+    ForEachObjectItem((f: Boid) => {
       f.flocking(this.rCanvas);
       f.draw();
       f.update();
@@ -237,20 +235,14 @@ if (ctx) {
       (mainInstance.startClicked).bind(mainInstance)
     );
   }
-
   // document.getElementsByTagName("body")[0].innerHTML += "<br/>red, green, yellow";
-
-  // if (castTrace()) {
-  //
-  // }
 }
-
 
 /*
 
 mouse cast:
-mouse gives smth to the screen (mouse onclick handler...)
-, screen handles it by linking itself to the qt tree
+(mouse onclick handler...)
+, screen handles it checks out the corresponding part of the qt tree
 
 qt tree implements 'select' listener....
  */
