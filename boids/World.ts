@@ -3,7 +3,7 @@
 // if around 90 degrees then move left/right, < 90 then move right > 90 move left... add this after you visualize the collision
 import {CRay} from "../JLibrary/geometry/CRay";
 import {Boundary} from "../JLibrary/geometry/Boundary";
-import {QuadTree} from "./QuadTree";
+import {QuadTree} from "../JLibrary/canvas/structures/QuadTree";
 import {Vector2} from "three";
 
 /**

@@ -1,4 +1,4 @@
-import {QuadTree} from "./QuadTree";
+import {QuadTree} from "../JLibrary/canvas/structures/QuadTree";
 import {Boid} from "./Boid";
 import {BackendType, CanvasContext, D_Point, D_Rect} from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";

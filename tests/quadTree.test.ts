@@ -1,4 +1,4 @@
-import {QuadPoint, QuadTree} from "../boids/QuadTree";
+import {QuadPoint, QuadTree} from "../JLibrary/canvas/structures/QuadTree";
 import {D_Rect} from "../JLibrary/functions/structures";
 // npm test
 

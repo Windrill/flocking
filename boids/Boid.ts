@@ -1,14 +1,19 @@
-import {Point, QuadPoint} from "./QuadTree";
+import {Point, QuadPoint} from "../JLibrary/canvas/structures/QuadTree";
 import * as THREE from 'three';
 import {Vector2} from 'three';
-import {Algebra, RAD2DEG, WRAP} from "../JLibrary/functions/algebra";
+import {
+  Algebra, CAngle, Cartesian2Polar,
+  DEG2RAD,
+  GetDoubleSidedDegreee,
+  Polar2Cartesian,
+  RAD2DEG,
+  WRAP
+} from "../JLibrary/functions/algebra";
 import {Accumulator, ForEachArrayItem} from "../JLibrary/functions/functional";
 import {
-  BackendType,
-  CanvasContext,
   D_Rect,
   MidPointToBottomLeft,
-  MidPointToTopLeft, MidPointToTopLeftBoxTuple,
+  MidPointToTopLeftBoxTuple,
   NormalizeX, Quackable, QuackingV2
 } from "../JLibrary/functions/structures";
 import {R_Canvas} from "../JLibrary/canvas/canvas";
@@ -18,7 +23,7 @@ import {MathTypeToNumber, Vec2Ray} from "../JLibrary/geometry/Conversions";
 import {Boundary} from "../JLibrary/geometry/Boundary";
 import {CRay} from "../JLibrary/geometry/CRay";
 import {MathType, multiply} from "mathjs";
-import {NormalizeWithinPeriod, RadDiff2D} from "../JLibrary/angle/normalization";
+import {AngleDiff, NormalizeWithinPeriod, RadDiff2D} from "../JLibrary/angle/normalization";
 
 const ORG = new THREE.Vector2(0, 0);
 let boidColors = [
@@ -28,6 +33,15 @@ let boidColors = [
   "#f89c34"
 ];
 
+let TickLocGen = (pt : Quackable, addable : Quackable) => {
+  let ptCounter = pt;
+  let adding = () => {
+    ptCounter.x += addable.x;
+    ptCounter.y += addable.y;
+    return ptCounter;
+  }
+  return adding;
+}
 // QuadPoint should indicate this has a positional aspect that is queryable.
 class Boid extends QuadPoint {
   // These are, pure vectors
@@ -149,22 +163,22 @@ class Boid extends QuadPoint {
     this.acceleration.add(cohesion);
 
     let direction: THREE.Vector2 = (this.acceleration.clone()).add(this.velocity);
-    let traceRay: CRay = Vec2Ray(this.getThreeVec(), this.getThreeVec().clone().add(direction));
-    let testOffset = 0;//offset for text
+    let traceRay: CRay = Vec2Ray(this.getLocationTHREEJS(), this.getLocationTHREEJS().clone().add(direction));
+    let locTick = TickLocGen({
+      x:this.getLocation().x,
+      y:this.getLocation().y
+    }, {x:0,y:15});
+
     ForEachArrayItem((b: Boundary) => {
       // Temporary: if not hitting mouse, don't draw yet.
       if (b.name != "mouseBoundary") {
         return;
       }
-      let rayToBoundary = castTrace(traceRay, b);
-      if (!rayToBoundary[1]) {
+      let [border, intersection] = castTrace(traceRay, b);
+      let [borderFrom, borderTo] = [border.points[0], border.points[1]];
+      if (!intersection) {
         return;
       }
-      let border = rayToBoundary[0];
-      let intersection = rayToBoundary[1];
-      let directionVector = intersection.sub(this.getThreeVec());
-      // let directionVector = rayToBoundary[1].clone().sub(this.getLocation());
-      // let intersection = this.getLocation().clone().add(directionVector).clone();// this == TRACEDONE
 
       let brightGreen = {fillStyle: "#31d08e", debug: false, lineWidth: 4};
       let darkGreen = {fillStyle: "#365c4c", debug: false, lineWidth: 3};
@@ -172,53 +186,64 @@ class Boid extends QuadPoint {
       let orange = {fillStyle: "#d07931", debug: false, lineWidth: 7};
       let purple = {fillStyle: "#6c40d5", debug: false, lineWidth: 5};
 
-      rCanvas.carrow(this.getLocation(), directionVector, (directionVector).length(), brightGreen);
+      // values are mostly correct after verifying using console.log
+      let doubleBorderAngles = GetDoubleSidedDegreee(borderTo, borderFrom);
 
-      rCanvas.write("Intersect", rayToBoundary[1].x, rayToBoundary[1].y);
-      let aAng = RAD2DEG * Algebra.GetRad(border.points[0].clone().sub(intersection)); //
-      // I am thinking since these are 2 colliding forces, they ought to be 180 degrees apart.
-      // Hence when this points to bottom left, the degrees are negative (-160) while towards the
 
-      // borders are positive (+20)
-      let bAng = RAD2DEG * Algebra.GetRad(directionVector);
-
-      rCanvas.cPlate(intersection, directionVector, 25);
-      rCanvas.clineo(intersection, border.points[0], redThick);
-      rCanvas.clineo(intersection, this.getLocation(), orange);
-
-      testOffset += 15;
-      let d1 = NormalizeWithinPeriod(bAng-aAng, 0, 360);
-      rCanvas.write(
-        `BorderVec: ${aAng.toFixed(0)} `+
-        `DirectionVec:${bAng.toFixed(0)} `+
-        `Diff:${d1.toFixed(0)} D`, this.getLocation().x + 10, this.getLocation().y + 10 + testOffset);
-
-      console.log(d1>180?360-d1:d1);
-        let bottomFlap = Algebra.ProjectP(directionVector, 50, aAng - bAng);
-        rCanvas.carrow(this.getThreeVec().clone().add(directionVector), bottomFlap, 50, darkGreen);
-
-      { // Same angle as boundary's angle at ray.
-        //aAng - bAng
-        let bottomFlap = Algebra.ProjectP(directionVector, 50,
-          aAng - bAng
-          -1 * NormalizeWithinPeriod(180-d1, 0, 360)
+      let CoordinateToDirection = (coord : QuackingV2) => {
+        return {
+          x: coord.x,
+          y: -coord.y
+        }
+      };
+      // it was easy to mix up direction and actual x,y coordinates. so you need to change this getrad y * -1 into a
+      // data structure that converts directions into xy coordinates.
+      let traceBounceAngle = RAD2DEG*Cartesian2Polar(
+        // this is to represent the bouncing back angle! the equal and opposite reaction lol
+        // so it's a custom angle, to anble the negative x.
+        {
+          x: -traceRay.direction.x,
+          // as for y, original is -y so - of -y is +y
+        y: traceRay.direction.y}
       );
-        rCanvas.carrow(this.getThreeVec().clone().add(directionVector), bottomFlap, 50, orange);
-      }
-      {
-        let leftover = aAng - bAng;
-        if (leftover > 180) leftover -= 180;
-        // console.log(leftover);
 
-        let bottomFlap = Algebra.ProjectP(directionVector, 50,
-          aAng - bAng +
-        // will projectp work with negative angles...
-          1 * NormalizeWithinPeriod(180 -d1,0,360)
-        // NormalizeWithinPeriod(-d1, 0, 360)
-        );
-        // console.log(NormalizeWithinPeriod(d1 , 0,360), NormalizeWithinPeriod(d1, 0, 360));
-        rCanvas.carrow(this.getThreeVec().clone().add(directionVector), bottomFlap, 50, purple);
-      }
+      // x and y needs to be in order so you have to-from, instead of reordering them due to sign.
+      let boundaryAngle = RAD2DEG*Cartesian2Polar({
+        x: borderTo.x - borderFrom.x,
+        y: borderTo.y - borderFrom.y
+      }, true);
+      let relativeBounceAngle : CAngle = Algebra.ConvertBasis(new CAngle(traceBounceAngle), boundaryAngle)
+      let ninetyMinus = (x: number) => 90 - x;
+      // does angle diff follow strictly ccw and cw?
+      // AngleDiff()
+      let nn : number = (relativeBounceAngle.angle > 0 ? 90 : -90); // also need o check out basis i guess.....but it should be 0.
+      // have a basis normalization angle?? lol. funny bc its already built into the constructor
+      let sameSideNinety = (relativeAngle : number) => relativeAngle < 0  ? -90-relativeAngle : 90-relativeAngle;
+      let basisNinetyAdd = (basis : number, relativeAngle : number) => basis < 0  ?-90+relativeAngle : 90+relativeAngle;
+      // the x and y that are 90 degrees and 180 degrees based on the intersection
+      // let axisAngle = ninetyMinus( relativeBounceAngle.angle);
+      let axisAngle = sameSideNinety( relativeBounceAngle.angle);
+      let newAngle = basisNinetyAdd(relativeBounceAngle.basis, axisAngle);
+
+      // relative to boundary angle
+      rCanvas.writeo(`TraceRay:${traceBounceAngle.toFixed(1)}`, locTick());
+      rCanvas.writeo(`Relative:${relativeBounceAngle}`, locTick());
+      rCanvas.writeo(`SameSideNinety:${axisAngle} BA: ${boundaryAngle.toFixed(1)}, nn:${nn.toFixed(1)}; total:${(axisAngle + nn + boundaryAngle).toFixed(1)}`, locTick());
+      rCanvas.writeo(`Now:${newAngle}`, locTick());
+      rCanvas.writeo(`Distance-90-to-relative:${axisAngle.toFixed(1)}`, locTick());
+
+      rCanvas.carrow(intersection, Polar2Cartesian(1,
+        NormalizeWithinPeriod(axisAngle + nn + boundaryAngle) * DEG2RAD, true), 30, purple);
+
+      let directionVector = intersection.clone().sub(this.getLocationTHREEJS());
+      let directionVectorOppo = this.getLocationTHREEJS().clone().sub(intersection);
+
+      let frameOfReferenceAngle = Algebra.GetRad(borderFrom.clone().sub(borderTo)) * RAD2DEG;
+      let frameOfReferenceAngleOppo = Algebra.GetRad(borderTo.clone().sub(borderFrom)) * RAD2DEG;
+      let normalizeOpposite = NormalizeWithinPeriod(frameOfReferenceAngle - frameOfReferenceAngleOppo, -360, 360);
+      console.assert(Algebra.Approx(Math.abs(normalizeOpposite), 180));
+
+      rCanvas.clineo(intersection, this.getLocation(), brightGreen);
     }, this.world.boundaries);
 
     // draw bounce-off
@@ -227,10 +252,8 @@ class Boid extends QuadPoint {
     let diffY = this.getLocation().y - bottomFlap.y;
 
     rCanvas.cline(this.getLocation().x, this.getLocation().y, this.getLocation().x - bottomFlap.x, this.getLocation().y - bottomFlap.y,
-      //Args[0]
       {fillStyle: "#126cb4", debug: false, lineWidth: 3}
     );
-    // let rad = Algebra.GetRad({x: diffX, y: diffY});
     let rad = Algebra.GetRad(traceRay.direction);
 
     // now draw this .... i guess its non skewing, and resize...
@@ -314,7 +337,7 @@ class Boid extends QuadPoint {
 
       let appliedForces : THREE.Vector2[] = [];
       ForEachArrayItem((query : QuadPoint) => {
-        appliedForces.push(query.getThreeVec());
+        appliedForces.push(query.getLocationTHREEJS());
       }, queryResult);
       forces.push(appliedForces);
       steering.push((new THREE.Vector2(0, 0)));
@@ -336,7 +359,7 @@ class Boid extends QuadPoint {
     if (forces[1].length > 1) {
       let cohesiveForce = Accumulator(addForces, forces[1], (new THREE.Vector2(0, 0)));
       steering[1] = cohesiveForce.divideScalar(forces[1].length);
-      steering[1].sub(this.getThreeVec());
+      steering[1].sub(this.getLocationTHREEJS());
       CLAMP_VEC2(steering[1], this.maxForce);
     }
     // needs to be: strength inversely proportional to length???, cannot be linear, cannot be too strong
@@ -348,7 +371,7 @@ class Boid extends QuadPoint {
       //item: Boid
       steering[2] = Accumulator((acc: THREE.Vector2, item : THREE.Vector2) => {
         // if too close, force is bigger: 5 / 1
-        let separationForce = this.getThreeVec().clone().sub(item);
+        let separationForce = this.getLocationTHREEJS().clone().sub(item);
         // 30: length of 25 = very small force
         if (separationForce.length() != 0) {
           return acc.add(
